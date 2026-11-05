@@ -1,0 +1,245 @@
+name: Release
+
+# 两条发布通道：
+#   push 到 dev  （feature PR 合并后）→ 测试版 x.y.z.PPPPP，mark 为 prerelease
+#   push 到 main （dev 合并后）       → 正式版 x.y.z，mark 为 latest
+#
+# 产物：gradle assembleDebug / assembleRelease / bundleRelease
+#      测试版发布 debug.apk + release.apk + release.aab
+#      正式版发布 release.apk + release.aab
+on:
+  push:
+    branches: [ main, dev ]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 手动指定 PR 编号（仅测试版使用，留空自动查找关联 PR）
+        required: false
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MANUAL_PR: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+
+          BRANCH="${GITHUB_REF_NAME}"
+          MAJOR=$(sed -n 's/^version\.major=//p' version.properties | tr -d '[:space:]')
+          MINOR=$(sed -n 's/^version\.minor=//p' version.properties | tr -d '[:space:]')
+          PATCH=$(sed -n 's/^version\.patch=//p' version.properties | tr -d '[:space:]')
+          MAJOR=${MAJOR:-1}
+          MINOR=${MINOR:-0}
+          PATCH=${PATCH:-0}
+
+          # release 工作流的 run number 单调递增，用于生成全局递增的 versionCode，
+          # 保证测试版与正式版互相安装时不会被判定为降级。
+          BUILD_NUMBER=$((GITHUB_RUN_NUMBER * 10 + GITHUB_RUN_ATTEMPT))
+
+          PR=""
+          if [ "$BRANCH" = "main" ]; then
+            OFFICIAL=true
+            VERSION_NAME="${MAJOR}.${MINOR}.${PATCH}"
+            PR_ARG=""
+          else
+            OFFICIAL=false
+            PR="${MANUAL_PR:-}"
+            if [ -z "$PR" ]; then
+              # GitHub 记录 commit 与 PR 的关联，squash / merge / rebase 合并都能查到
+              PR=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+                --jq 'map(select(.merged_at != null)) | .[0].number // empty' 2>/dev/null || true)
+            fi
+            if [ -z "$PR" ]; then
+              echo "::warning::未找到与 ${GITHUB_SHA} 关联的已合并 PR，改用 run number 作为构建号"
+              PR="$GITHUB_RUN_NUMBER"
+            fi
+            VERSION_NAME="${MAJOR}.${MINOR}.${PATCH}.$(printf '%05d' "$PR")"
+            PR_ARG="-PprNumber=${PR}"
+          fi
+
+          TAG="v${VERSION_NAME}"
+          {
+            echo "branch=$BRANCH"
+            echo "official=$OFFICIAL"
+            echo "pr=$PR"
+            echo "name=$VERSION_NAME"
+            echo "tag=$TAG"
+            echo "build_number=$BUILD_NUMBER"
+            echo "pr_arg=$PR_ARG"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "$OFFICIAL" = "true" ]; then
+            echo "发布正式版：$VERSION_NAME（tag：$TAG）"
+          else
+            echo "发布测试版：$VERSION_NAME（tag：$TAG，PR #$PR）"
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::tag $TAG 已存在，跳过本次发布"
+            if [ "$OFFICIAL" = "true" ]; then
+              echo "::notice::如需发布新的正式版，请先更新 version.properties 中的版本号"
+            fi
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare release signing key
+        if: steps.version.outputs.skip == 'false' && steps.version.outputs.official == 'true'
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -n "${KEYSTORE_BASE64:-}" ]; then
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "path=$RUNNER_TEMP/release.keystore" >> "$GITHUB_OUTPUT"
+            echo "signing=正式签名证书" >> "$GITHUB_OUTPUT"
+            echo "已加载仓库配置的正式签名证书"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+            echo "signing=debug 证书（未配置 RELEASE_KEYSTORE_BASE64）" >> "$GITHUB_OUTPUT"
+            echo "::warning::仓库未配置 RELEASE_KEYSTORE_BASE64，正式包将使用 debug 证书签名（可安装，但不可用于应用商店）"
+          fi
+
+      - name: Set up JDK 21
+        if: steps.version.outputs.skip == 'false'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # GitHub 官方 ubuntu runner 已预装 Android SDK，AGP 会自动补齐缺失的
+      # platform / build-tools；不再使用 android-actions/setup-android（其许可证
+      # 自动接受步骤与新版 cmdline-tools 不兼容）。
+      - name: Show Android SDK
+        if: steps.version.outputs.skip == 'false'
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms" || true
+
+      - name: Set up Gradle
+        if: steps.version.outputs.skip == 'false'
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build debug + release + AAB
+        if: steps.version.outputs.skip == 'false'
+        env:
+          # Gradle 会把 ORG_GRADLE_PROJECT_xxx 映射为 -Pxxx，避免密码出现在命令行日志中
+          ORG_GRADLE_PROJECT_releaseKeystorePath: ${{ steps.keystore.outputs.path }}
+          ORG_GRADLE_PROJECT_releaseKeystorePassword: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_releaseKeyAlias: ${{ secrets.RELEASE_KEY_ALIAS }}
+          ORG_GRADLE_PROJECT_releaseKeyPassword: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: >
+          ./gradlew
+          :app:assembleDebug
+          :app:assembleRelease
+          :app:bundleRelease
+          -PbuildNumber=${{ steps.version.outputs.build_number }}
+          ${{ steps.version.outputs.pr_arg }}
+          --stacktrace
+
+      - name: Package release assets
+        if: steps.version.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          V="${{ steps.version.outputs.name }}"
+          OFFICIAL="${{ steps.version.outputs.official }}"
+          mkdir -p dist
+
+          if [ "$OFFICIAL" = "true" ]; then
+            cp app/build/outputs/apk/release/app-release.apk "dist/AMC-${V}.apk"
+            cp app/build/outputs/bundle/release/app-release.aab "dist/AMC-${V}.aab"
+          else
+            cp app/build/outputs/apk/debug/app-debug.apk "dist/AMC-${V}-debug.apk"
+            cp app/build/outputs/apk/release/app-release.apk "dist/AMC-${V}-release.apk"
+            cp app/build/outputs/bundle/release/app-release.aab "dist/AMC-${V}-release.aab"
+          fi
+
+          (cd dist && sha256sum ./* > SHA256SUMS.txt)
+          ls -lh dist
+
+      - name: Create GitHub release
+        if: steps.version.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          V="${{ steps.version.outputs.name }}"
+          PR="${{ steps.version.outputs.pr }}"
+          SIGNING="${{ steps.keystore.outputs.signing }}"
+          OFFICIAL="${{ steps.version.outputs.official }}"
+
+          if [ "$OFFICIAL" = "true" ]; then
+            gh release create "$TAG" dist/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "AMC ${TAG} · 正式版" \
+              --latest \
+              --notes "## AMC ${V}（正式版）
+
+          - 版本：\`${V}\`
+          - 提交：\`${GITHUB_SHA}\`
+          - 签名：${SIGNING}
+
+          | 文件 | 说明 |
+          | --- | --- |
+          | \`AMC-${V}.apk\` | 正式 APK，可直接下载安装 |
+          | \`AMC-${V}.aab\` | 正式 App Bundle |
+          | \`SHA256SUMS.txt\` | SHA-256 校验和 |"
+          else
+            gh release create "$TAG" dist/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "AMC ${TAG} · 测试版" \
+              --prerelease \
+              --notes "## AMC ${V}（测试版）
+
+          - 版本：\`${V}\`
+          - 来源 PR：#${PR}
+          - 提交：\`${GITHUB_SHA}\`
+          - 签名：debug 证书（仅供测试安装）
+
+          | 文件 | 说明 |
+          | --- | --- |
+          | \`AMC-${V}-debug.apk\` | debug 构建 |
+          | \`AMC-${V}-release.apk\` | release 构建（debug 签名） |
+          | \`AMC-${V}-release.aab\` | release App Bundle（debug 签名） |
+          | \`SHA256SUMS.txt\` | SHA-256 校验和 |"
+          fi
+
+      - name: Release summary
+        if: steps.version.outputs.skip == 'false'
+        run: |
+          {
+            echo "## AMC ${{ steps.version.outputs.name }}"
+            echo ""
+            if [ "${{ steps.version.outputs.official }}" = "true" ]; then
+              echo "- 通道：**正式版**（main）"
+            else
+              echo "- 通道：**测试版**（dev，PR #${{ steps.version.outputs.pr }}）"
+            fi
+            echo "- Tag：\`${{ steps.version.outputs.tag }}\`"
+            echo "- Release：https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag }}"
+          } >> "$GITHUB_STEP_SUMMARY"
