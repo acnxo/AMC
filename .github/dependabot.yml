@@ -1,0 +1,52 @@
+# Dependabot：每周自动检查依赖与 GitHub Actions 版本更新
+version: 2
+
+updates:
+  # Gradle 依赖（含 gradle/libs.versions.toml 版本目录）
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "gradle"
+    commit-message:
+      prefix: "build(deps)"
+      include: "scope"
+    groups:
+      androidx:
+        patterns:
+          - "androidx.*"
+      kotlin:
+        patterns:
+          - "org.jetbrains.kotlin*"
+      other:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "androidx.*"
+          - "org.jetbrains.kotlin*"
+
+  # GitHub Actions 组件版本（uses: owner/action@vX）
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "ci(deps)"
+      include: "scope"
+    groups:
+      actions:
+        patterns:
+          - "*"
