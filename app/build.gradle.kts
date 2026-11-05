@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -14,7 +16,7 @@ plugins {
 //   versionCode 由 CI 传入的 -PbuildNumber 决定（release 工作流的 run number），
 //   在测试版与正式版之间保持全局单调递增，避免安装时被判定为降级。
 // ---------------------------------------------------------------------------
-val versionProperties = java.util.Properties().apply {
+val versionProperties = Properties().apply {
     val file = rootProject.file("version.properties")
     if (file.isFile) {
         file.inputStream().use { load(it) }
