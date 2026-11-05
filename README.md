@@ -17,7 +17,7 @@
 ├── .github/
 │   ├── dependabot.yml                    # 每周自动更新 Gradle 依赖与 Actions 版本
 │   └── workflows/
-│       ├── android-build.yml             # PR 验证：构建 debug APK
+│       ├── snapshot-build.yml            # 特性分支快照构建（feat/*、fix/*）
 │       └── release.yml                   # dev → 测试版，main → 正式版
 ├── version.properties                    # 基础版本号 x.y.z
 ├── gradle/libs.versions.toml             # 依赖版本目录
@@ -67,10 +67,13 @@ MenuNode(
 ## 分支与发布流程
 
 ```
-feature/*  --PR-->  dev  --PR-->  main
-                     │             │
-               测试版 Release   正式版 Release
-           x.y.z.PPPPP（测试）    x.y.z（正式）
+feat/* fix/*  --push / PR 打开或更新-->  快照版 Release
+                                        x.y.z.PPPPP.yyMMddHHmm
+        │
+        └──PR-->  dev  --PR-->  main
+                    │             │
+              测试版 Release   正式版 Release
+          x.y.z.PPPPP（测试）    x.y.z（正式）
 ```
 
 ### 版本号规则
@@ -85,12 +88,15 @@ version.patch=0
 
 | 触发 | 版本名 | Tag | Release 类型 | 产物 |
 | --- | --- | --- | --- | --- |
+| 向 `feat/*` / `fix/*` 递交代码，或这些分支的 PR 打开 / 更新 | `x.y.z.PPPPP.yyMMddHHmm` | `vx.y.z.PPPPP.yyMMddHHmm` | pre-release（快照） | debug APK + release APK |
 | PR 合并到 `dev` | `x.y.z.PPPPP`（PR 号左补 0 到五位） | `vx.y.z.PPPPP` | pre-release | debug APK + release APK + AAB |
 | `dev` 合并到 `main` | `x.y.z` | `vx.y.z` | 正式版（latest） | release APK + AAB |
 
-- `PPPPP` 由 GitHub 关联的已合并 PR 自动解析（squash / merge / rebase 均支持）；找不到时回退为工作流 run number；
+- `PPPPP` 为关联 PR 编号（五位，左补 0），无 PR 时为 `00000`；
+- `yyMMddHHmm` 为 Asia/Shanghai 构建时间戳，仅快照包使用，保证同一 PR 多次递交的唯一性；
+- 快照包的版本名与 tag 与代码提交一一对应，不会覆盖已有 tag（同名则仅保留 Actions 产物）；
 - 正式版发布前请先更新 `version.properties`，否则 `vx.y.z` tag 已存在会跳过发布并给出提示；
-- `versionCode` 由 release 工作流的 run number 生成（`1_000_000 + run*10 + attempt`），测试版与正式版共享同一递增序列，避免安装时被判为降级。
+- `versionCode` 由各工作流的 run number 生成（`1_000_000 + run*10 + attempt`）。
 
 ### 正式签名（可选）
 
@@ -107,10 +113,14 @@ version.patch=0
 
 ## GitHub Actions
 
-### PR 验证（android-build.yml）
+### 快照构建（snapshot-build.yml）
 
-- 触发：向 `main` / `dev` 发起 PR，或手动 `workflow_dispatch`
-- 动作：`assembleDebug`，产物上传到 Actions **Artifacts**（名称含版本号）
+- 触发：
+  - push 到 `feat/**` 或 `fix/**` 分支；
+  - 这些分支向 `dev` / `main` 发起 PR（opened / synchronize / reopened）；
+  - 手动 `workflow_dispatch`；
+- 动作：构建 debug APK + release APK（debug 签名），上传 Actions **Artifacts**，并创建 **pre-release** 快照包（tag 为 `vx.y.z.PPPPP.yyMMddHHmm`）；
+- 来自 fork 的 PR 只上传 Artifacts，不创建 Release。
 
 ### 发布（release.yml）
 
