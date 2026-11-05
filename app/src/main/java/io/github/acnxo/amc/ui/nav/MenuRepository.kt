@@ -24,8 +24,8 @@ object MenuRepository {
         MenuNode(
             id = "home",
             title = "首页",
-            url = HOME_URL,
             icon = Icons.Filled.Home,
+            destination = MenuDestination.Web(HOME_URL),
         ),
         MenuNode(
             id = "products",
@@ -39,19 +39,19 @@ object MenuRepository {
                         MenuNode(
                             id = "products.mobile.amc",
                             title = "AMC",
-                            url = HOME_URL,
+                            destination = MenuDestination.Web(HOME_URL),
                         ),
                         MenuNode(
                             id = "products.mobile.aha",
                             title = "AHA",
-                            url = HOME_URL,
+                            destination = MenuDestination.Web(HOME_URL),
                         ),
                     ),
                 ),
                 MenuNode(
                     id = "products.desktop",
                     title = "桌面工具",
-                    url = HOME_URL,
+                    destination = MenuDestination.Web(HOME_URL),
                 ),
             ),
         ),
@@ -63,12 +63,34 @@ object MenuRepository {
                 MenuNode(
                     id = "about.intro",
                     title = "公司介绍",
-                    url = HOME_URL,
+                    destination = MenuDestination.Web(HOME_URL),
                 ),
                 MenuNode(
                     id = "about.contact",
                     title = "联系我们",
-                    url = HOME_URL,
+                    destination = MenuDestination.Web(HOME_URL),
+                ),
+                MenuNode(
+                    id = "about.version",
+                    title = "版本信息",
+                    destination = MenuDestination.VersionInfo,
+                ),
+                MenuNode(
+                    id = "about.settings",
+                    title = "设置",
+                    children = listOf(
+                        MenuNode(
+                            id = "about.settings.service",
+                            title = "服务",
+                            children = listOf(
+                                MenuNode(
+                                    id = "about.settings.service.server",
+                                    title = "服务器节点",
+                                    destination = MenuDestination.ServerConfig,
+                                ),
+                            ),
+                        ),
+                    ),
                 ),
             ),
         ),

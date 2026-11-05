@@ -157,6 +157,8 @@ jobs:
           :app:bundleRelease
           -PbuildNumber=${{ steps.version.outputs.build_number }}
           ${{ steps.version.outputs.pr_arg }}
+          -PgitSha=${{ github.sha }}
+          -PbuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           --stacktrace
 
       - name: Package release assets

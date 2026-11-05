@@ -27,10 +27,13 @@
 │       ├── AndroidManifest.xml
 │       ├── java/io/github/acnxo/amc/
 │       │   ├── MainActivity.kt           # 入口 Activity
+│       │   ├── data/                     # 服务器节点配置模型与本地持久化
 │       │   └── ui/
 │       │       ├── AppRoot.kt            # 抽屉 + 顶栏 + 内容区
 │       │       ├── nav/                  # 菜单模型、数据源、递归渲染组件
+│       │       ├── settings/             # 服务器节点配置页
 │       │       ├── theme/                # Material 3 配色与主题
+│       │       ├── version/              # 版本信息页
 │       │       └── web/                  # WebView 封装
 │       └── res/                          # 图标、字符串、主题
 └── settings.gradle.kts
@@ -50,7 +53,11 @@ MenuNode(
             id = "products.mobile",
             title = "移动应用",
             children = listOf(    // 支持三级及更深层级
-                MenuNode(id = "products.mobile.amc", title = "AMC", url = "https://acanx.com"),
+                MenuNode(
+                    id = "products.mobile.amc",
+                    title = "AMC",
+                    destination = MenuDestination.Web("https://acanx.com"),
+                ),
             ),
         ),
     ),
@@ -58,11 +65,63 @@ MenuNode(
 ```
 
 - 分组节点：点击展开 / 折叠，状态会自动保存（屏幕旋转、进程重建后恢复）；
-- 叶子节点：`url` 非空时在 WebView 中打开；为空时展示占位提示；
+- 叶子节点：按 `destination` 决定页面类型：
+  - `MenuDestination.Web(url)`：内置 WebView 打开网页；
+  - `MenuDestination.VersionInfo`：版本信息页；
+  - `MenuDestination.ServerConfig`：服务器节点配置页；
+  - `null`：展示占位提示；
 - 顶栏标题显示从根节点到当前节点的完整路径。
 
 后续如需服务端下发菜单，只要把 `MenuRepository.defaultMenus` 换成动态解析出的
 `List<MenuNode>`，界面层无需改动。
+
+## 当前菜单结构
+
+```
+首页（WebView → acanx.com）
+产品中心
+├── 移动应用
+│   ├── AMC
+│   └── AHA
+└── 桌面工具
+关于
+├── 公司介绍
+├── 联系我们
+├── 版本信息
+└── 设置
+    └── 服务
+        └── 服务器节点
+```
+
+## 服务器节点配置
+
+位置：`关于 → 设置 → 服务 → 服务器节点`。
+
+- 支持两种连接模式：
+  - **域名**：如 `acanx.com`、`api.acanx.com`（默认使用 443/80 端口）；
+  - **IP + 端口**：IPv4 地址 + 1-65535 端口，如 `192.168.1.10:8080`；
+- 可选 HTTPS / HTTP；
+- 保存后写入本地 `SharedPreferences`（`amc_server_config`），重启应用仍然生效；
+- 页面会实时预览拼接出的 `baseUrl`，并展示当前生效配置。
+
+后续接入云端 API 时可直接使用：
+
+```kotlin
+val repository = ServerConfigRepository.getInstance(context)
+val baseUrl = repository.current().baseUrl          // 一次性读取
+repository.config.collect { config ->               // 或订阅变化
+    apiClient.rebuild(config.baseUrl)
+}
+```
+
+## 版本信息
+
+位置：`关于 → 版本信息`，展示：
+
+- 版本名称 / versionCode（由 `version.properties` + PR 编号计算）；
+- 包名、构建类型（debug / release）；
+- Git 提交、构建时间（CI 通过 `-PgitSha` / `-PbuildTime` 注入到 `BuildConfig`）；
+- 运行环境的 Android 版本与设备型号。
 
 ## 分支与发布流程
 
