@@ -173,6 +173,12 @@ jobs:
             PR_LINE="#${PR}"
           fi
 
+          # push 与 pull_request 可能并发触发同一版本，已有 release 时直接跳过
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::notice::release $TAG 已存在，跳过发布"
+            exit 0
+          fi
+
           gh release create "$TAG" dist/* \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
