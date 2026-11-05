@@ -56,6 +56,23 @@ object MenuRepository {
             ),
         ),
         MenuNode(
+            id = "settings",
+            title = "设置",
+            children = listOf(
+                MenuNode(
+                    id = "settings.service",
+                    title = "服务",
+                    children = listOf(
+                        MenuNode(
+                            id = "settings.service.server",
+                            title = "服务器节点",
+                            destination = MenuDestination.ServerConfig,
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        MenuNode(
             id = "about",
             title = "关于",
             icon = Icons.Filled.Info,
@@ -74,23 +91,6 @@ object MenuRepository {
                     id = "about.version",
                     title = "版本信息",
                     destination = MenuDestination.VersionInfo,
-                ),
-                MenuNode(
-                    id = "about.settings",
-                    title = "设置",
-                    children = listOf(
-                        MenuNode(
-                            id = "about.settings.service",
-                            title = "服务",
-                            children = listOf(
-                                MenuNode(
-                                    id = "about.settings.service.server",
-                                    title = "服务器节点",
-                                    destination = MenuDestination.ServerConfig,
-                                ),
-                            ),
-                        ),
-                    ),
                 ),
             ),
         ),
