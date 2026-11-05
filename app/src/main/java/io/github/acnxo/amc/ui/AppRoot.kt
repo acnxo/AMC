@@ -42,12 +42,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.acnxo.amc.R
 import io.github.acnxo.amc.ui.nav.DrawerHeader
+import io.github.acnxo.amc.ui.nav.MenuDestination
 import io.github.acnxo.amc.ui.nav.MenuNode
 import io.github.acnxo.amc.ui.nav.MenuRepository
 import io.github.acnxo.amc.ui.nav.MenuTreeNode
 import io.github.acnxo.amc.ui.nav.findLeaf
 import io.github.acnxo.amc.ui.nav.findPath
 import io.github.acnxo.amc.ui.nav.firstLeaf
+import io.github.acnxo.amc.ui.settings.ServerNodeScreen
+import io.github.acnxo.amc.ui.version.VersionInfoScreen
 import io.github.acnxo.amc.ui.web.WebContentScreen
 import io.github.acnxo.amc.ui.web.WebViewHandle
 import kotlinx.coroutines.launch
@@ -142,14 +145,13 @@ fun AppRoot(
                         }
                     },
                     actions = {
-                        IconButton(
-                            onClick = { webViewHandle.reload() },
-                            enabled = selectedNode?.url != null,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Refresh,
-                                contentDescription = "刷新",
-                            )
+                        if (selectedNode?.destination is MenuDestination.Web) {
+                            IconButton(onClick = { webViewHandle.reload() }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = "刷新",
+                                )
+                            }
                         }
                     },
                 )
@@ -160,15 +162,22 @@ fun AppRoot(
                     .fillMaxSize()
                     .padding(innerPadding),
             ) {
-                val url = selectedNode?.url
-                if (url != null) {
-                    WebContentScreen(
-                        url = url,
+                when (val destination = selectedNode?.destination) {
+                    is MenuDestination.Web -> WebContentScreen(
+                        url = destination.url,
                         handle = webViewHandle,
                         modifier = Modifier.fillMaxSize(),
                     )
-                } else {
-                    EmptyPlaceholder(modifier = Modifier.fillMaxSize())
+
+                    MenuDestination.VersionInfo -> VersionInfoScreen(
+                        modifier = Modifier.fillMaxSize(),
+                    )
+
+                    MenuDestination.ServerConfig -> ServerNodeScreen(
+                        modifier = Modifier.fillMaxSize(),
+                    )
+
+                    null -> EmptyPlaceholder(modifier = Modifier.fillMaxSize())
                 }
             }
         }

@@ -54,6 +54,10 @@ val releaseKeystorePath = providers.gradleProperty("releaseKeystorePath")
     .orNull
     ?.takeIf { it.isNotBlank() }
 
+// 构建来源信息，由 CI 传入，供“版本信息”页面展示
+val gitSha = providers.gradleProperty("gitSha").orNull?.takeIf { it.isNotBlank() } ?: "local"
+val buildTime = providers.gradleProperty("buildTime").orNull?.takeIf { it.isNotBlank() } ?: "local"
+
 android {
     namespace = "io.github.acnxo.amc"
     compileSdk = 35
@@ -68,6 +72,9 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
+        buildConfigField("String", "GIT_BUILD_TIME", "\"$buildTime\"")
     }
 
     signingConfigs {
@@ -113,6 +120,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
