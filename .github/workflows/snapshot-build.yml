@@ -1,0 +1,216 @@
+name: Snapshot Build
+
+# 快照包：特性分支（feat/**、fix/**）递交代码或 PR 打开 / 更新时自动构建并发布。
+#
+# 版本：x.y.z.PPPPP.yyMMddHHmm
+#   x.y.z      = version.properties 中的基础版本
+#   PPPPP      = 关联 PR 编号（左补 0 到五位，无 PR 时为 00000）
+#   yyMMddHHmm = 构建时间戳（Asia/Shanghai），保证同一 PR 多次递交的唯一性
+#
+# 产物：debug APK + release APK（debug 证书签名，可直接安装）
+# 发布：prerelease（tag = v<版本>），已存在同名 tag 时跳过
+on:
+  push:
+    branches:
+      - "feat/**"
+      - "fix/**"
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+    branches: [ dev, main ]
+  workflow_dispatch:
+
+concurrency:
+  group: snapshot-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  snapshot:
+    name: Build snapshot
+    # PR 事件只处理 feat/*、fix/* 源分支；push 事件已由 branches 过滤
+    if: |
+      github.event_name != 'pull_request'
+      || startsWith(github.head_ref, 'feat/')
+      || startsWith(github.head_ref, 'fix/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      HEAD_REF: ${{ github.head_ref || github.ref_name }}
+      EVENT_PR: ${{ github.event.pull_request.number }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve snapshot version
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          BRANCH="${HEAD_REF}"
+          if [[ "${BRANCH}" != feat/* && "${BRANCH}" != fix/* && "${GITHUB_EVENT_NAME}" != "workflow_dispatch" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::分支 ${BRANCH} 不是 feat/* 或 fix/*，跳过快照构建"
+            exit 0
+          fi
+
+          MAJOR=$(sed -n 's/^version\.major=//p' version.properties | tr -d '[:space:]')
+          MINOR=$(sed -n 's/^version\.minor=//p' version.properties | tr -d '[:space:]')
+          PATCH=$(sed -n 's/^version\.patch=//p' version.properties | tr -d '[:space:]')
+          MAJOR=${MAJOR:-1}
+          MINOR=${MINOR:-0}
+          PATCH=${PATCH:-0}
+
+          PR="${EVENT_PR:-}"
+          if [ -z "$PR" ]; then
+            PR=$(gh pr list --head "$BRANCH" --state open \
+              --json number --limit 1 --jq '.[0].number // empty' 2>/dev/null || true)
+          fi
+          if ! [[ "$PR" =~ ^[0-9]+$ ]]; then
+            PR=0
+          fi
+
+          PR5=$(printf '%05d' "$PR")
+          TS=$(TZ=Asia/Shanghai date +%y%m%d%H%M)
+          VERSION="${MAJOR}.${MINOR}.${PATCH}.${PR5}.${TS}"
+          TAG="v${VERSION}"
+          BUILD_NUMBER=$((GITHUB_RUN_NUMBER * 10 + GITHUB_RUN_ATTEMPT))
+
+          {
+            echo "skip=false"
+            echo "pr=$PR"
+            echo "pr_padded=$PR5"
+            echo "timestamp=$TS"
+            echo "name=$VERSION"
+            echo "tag=$TAG"
+            echo "branch=$BRANCH"
+            echo "build_number=$BUILD_NUMBER"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "快照版本：$VERSION（分支 $BRANCH，PR #$PR）"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "release_exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::tag $TAG 已存在，本次仅上传构建产物"
+          else
+            echo "release_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up JDK 21
+        if: steps.version.outputs.skip == 'false'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # GitHub 官方 ubuntu runner 已预装 Android SDK，AGP 会自动补齐缺失的
+      # platform / build-tools。
+      - name: Show Android SDK
+        if: steps.version.outputs.skip == 'false'
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms" || true
+
+      - name: Set up Gradle
+        if: steps.version.outputs.skip == 'false'
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build snapshot APKs
+        if: steps.version.outputs.skip == 'false'
+        run: >
+          ./gradlew
+          :app:assembleDebug
+          :app:assembleRelease
+          -PprNumber=${{ steps.version.outputs.pr }}
+          -PsnapshotStamp=${{ steps.version.outputs.timestamp }}
+          -PbuildNumber=${{ steps.version.outputs.build_number }}
+          -PgitSha=${{ github.sha }}
+          -PbuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          --stacktrace
+
+      - name: Package snapshot assets
+        if: steps.version.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          V="${{ steps.version.outputs.name }}"
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk "dist/AMC-${V}-debug.apk"
+          cp app/build/outputs/apk/release/app-release.apk "dist/AMC-${V}-release.apk"
+          (cd dist && sha256sum ./* > SHA256SUMS.txt)
+          ls -lh dist
+
+      - name: Upload snapshot artifact
+        if: steps.version.outputs.skip == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: AMC-${{ steps.version.outputs.name }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish snapshot release
+        if: |
+          steps.version.outputs.skip == 'false'
+          && steps.version.outputs.release_exists == 'false'
+          && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          V="${{ steps.version.outputs.name }}"
+          PR="${{ steps.version.outputs.pr }}"
+          BRANCH="${{ steps.version.outputs.branch }}"
+          if [ "$PR" = "0" ]; then
+            PR_LINE="（未关联 PR）"
+          else
+            PR_LINE="#${PR}"
+          fi
+
+          # push 与 pull_request 可能并发触发同一版本，已有 release 时直接跳过
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::notice::release $TAG 已存在，跳过发布"
+            exit 0
+          fi
+
+          gh release create "$TAG" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "AMC ${TAG} · 快照版" \
+            --prerelease \
+            --notes "## AMC ${V}（快照包）
+
+          - 版本：\`${V}\`
+          - 来源分支：\`${BRANCH}\`
+          - 来源 PR：${PR_LINE}
+          - 提交：\`${GITHUB_SHA}\`
+          - 签名：debug 证书（仅供测试安装）
+
+          | 文件 | 说明 |
+          | --- | --- |
+          | \`AMC-${V}-debug.apk\` | debug 构建 |
+          | \`AMC-${V}-release.apk\` | release 构建（debug 签名） |
+          | \`SHA256SUMS.txt\` | SHA-256 校验和 |
+
+          > 快照包为特性分支的集成验证产物，不保证稳定，请勿用于生产。"
+
+      - name: Job summary
+        if: steps.version.outputs.skip == 'false'
+        run: |
+          {
+            echo "## AMC ${{ steps.version.outputs.name }}"
+            echo ""
+            echo "- 类型：快照包（snapshot）"
+            echo "- 分支：\`${{ steps.version.outputs.branch }}\`"
+            echo "- PR：#${{ steps.version.outputs.pr }}"
+            echo "- 产物：Actions Artifacts 中的 \`AMC-${{ steps.version.outputs.name }}\`"
+            if [ "${{ steps.version.outputs.release_exists }}" = "false" ]; then
+              echo "- Release：https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag }}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

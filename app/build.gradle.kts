@@ -37,10 +37,22 @@ val buildNumber = providers.gradleProperty("buildNumber")
     ?.toIntOrNull()
     ?.takeIf { it > 0 }
 
-val appVersionName = if (prNumber != null) {
-    "%d.%d.%d.%05d".format(baseMajor, baseMinor, basePatch, prNumber)
-} else {
-    "%d.%d.%d".format(baseMajor, baseMinor, basePatch)
+// 快照包时间戳（yyMMddHHmm），传入后版本形如 x.y.z.PPPPP.yyMMddHHmm
+val snapshotStamp = providers.gradleProperty("snapshotStamp")
+    .orNull
+    ?.takeIf { it.isNotBlank() }
+
+val appVersionName = when {
+    snapshotStamp != null -> "%d.%d.%d.%05d.%s".format(
+        baseMajor,
+        baseMinor,
+        basePatch,
+        prNumber ?: 0,
+        snapshotStamp,
+    )
+
+    prNumber != null -> "%d.%d.%d.%05d".format(baseMajor, baseMinor, basePatch, prNumber)
+    else -> "%d.%d.%d".format(baseMajor, baseMinor, basePatch)
 }
 
 val appVersionCode = when {
