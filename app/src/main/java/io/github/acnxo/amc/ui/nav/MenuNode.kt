@@ -3,18 +3,34 @@ package io.github.acnxo.amc.ui.nav
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
+ * 叶子菜单打开的内置页面类型。
+ *
+ * 分组节点（有 children）没有 destination。
+ */
+sealed interface MenuDestination {
+    /** 在内置 WebView 中打开网页 */
+    data class Web(val url: String) : MenuDestination
+
+    /** 版本信息页 */
+    data object VersionInfo : MenuDestination
+
+    /** 服务器节点配置页 */
+    data object ServerConfig : MenuDestination
+}
+
+/**
  * 导航菜单节点。
  *
  * - 有 [children] 的节点是可折叠的分组；
- * - 没有 [children] 的节点是叶子菜单，点击后由 [url] 决定展示的网页。
+ * - 没有 [children] 的节点是叶子菜单，点击后按 [destination] 决定展示的内容。
  *
  * 层级不设限，递归渲染即可支持二级、三级乃至更多级菜单。
  */
 data class MenuNode(
     val id: String,
     val title: String,
-    val url: String? = null,
     val icon: ImageVector? = null,
+    val destination: MenuDestination? = null,
     val children: List<MenuNode> = emptyList(),
 ) {
     val isLeaf: Boolean get() = children.isEmpty()
