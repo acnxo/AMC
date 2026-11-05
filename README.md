@@ -127,7 +127,8 @@ version.patch=0
 - `gradle`：更新 `gradle/libs.versions.toml` 中的依赖版本；
 - `github-actions`：更新工作流中 `uses:` 的 action 版本；
 
-Dependabot 提交的 PR 同样会走 PR 验证，合并后自动进入对应发布通道。
+Dependabot 提交的 PR 目标分支为 `dev`，合并后会先产出测试版（`x.y.z.PPPPP`），
+随 `dev` → `main` 合并后进入正式版。
 
 ## 许可证
 
