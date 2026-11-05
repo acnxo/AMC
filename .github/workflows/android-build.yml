@@ -30,8 +30,13 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # GitHub 官方 ubuntu runner 已预装 Android SDK，AGP 会自动补齐缺失的
+      # platform / build-tools；不再使用 android-actions/setup-android（其许可证
+      # 自动接受步骤与新版 cmdline-tools 不兼容）。
+      - name: Show Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms" || true
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
