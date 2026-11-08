@@ -32,7 +32,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -124,7 +124,7 @@ jobs:
 
       - name: Set up JDK 21
         if: steps.version.outputs.skip == 'false'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -140,7 +140,7 @@ jobs:
 
       - name: Set up Gradle
         if: steps.version.outputs.skip == 'false'
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Build debug + release + AAB
         if: steps.version.outputs.skip == 'false'
