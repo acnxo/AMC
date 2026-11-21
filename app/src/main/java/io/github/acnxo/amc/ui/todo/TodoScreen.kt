@@ -316,7 +316,7 @@ private fun TodoRow(
     onDelete: () -> Unit,
 ) {
     val density = LocalDensity.current
-    val revealWidth = with(density) { REVEAL_WIDTH_DP.toPx() }
+    val revealWidth = with(density) { REVEAL_WIDTH_DP.dp.toPx() }
     var offsetX by remember(item.taskNo) { mutableFloatStateOf(0f) }
 
     LaunchedEffect(swipeEnabled) {
