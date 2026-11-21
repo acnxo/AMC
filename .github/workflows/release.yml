@@ -1,11 +1,11 @@
 name: Release
 
 # 两条发布通道：
-#   push 到 dev  （feature PR 合并后）→ 测试版 x.y.z.PPPPP，mark 为 prerelease
+#   push 到 dev  （feature PR 合并后）→ 构建包 x.y.z.PPPPP，mark 为 prerelease
 #   push 到 main （dev 合并后）       → 正式版 x.y.z，mark 为 latest
 #
 # 产物：gradle assembleDebug / assembleRelease / bundleRelease
-#      测试版发布 debug.apk + release.apk + release.aab
+#      构建包发布 debug.apk + release.apk + release.aab
 #      正式版发布 release.apk + release.aab
 on:
   push:
@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       pr_number:
-        description: 手动指定 PR 编号（仅测试版使用，留空自动查找关联 PR）
+        description: 手动指定 PR 编号（仅构建包使用，留空自动查找关联 PR）
         required: false
 
 concurrency:
@@ -53,7 +53,7 @@ jobs:
           PATCH=${PATCH:-0}
 
           # release 工作流的 run number 单调递增，用于生成全局递增的 versionCode，
-          # 保证测试版与正式版互相安装时不会被判定为降级。
+          # 保证构建包与正式版互相安装时不会被判定为降级。
           BUILD_NUMBER=$((GITHUB_RUN_NUMBER * 10 + GITHUB_RUN_ATTEMPT))
 
           PR=""
@@ -91,7 +91,7 @@ jobs:
           if [ "$OFFICIAL" = "true" ]; then
             echo "发布正式版：$VERSION_NAME（tag：$TAG）"
           else
-            echo "发布测试版：$VERSION_NAME（tag：$TAG，PR #$PR）"
+            echo "发布构建包：$VERSION_NAME（tag：$TAG，PR #$PR）"
           fi
 
           if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
@@ -214,9 +214,9 @@ jobs:
             gh release create "$TAG" dist/* \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
-              --title "AMC ${TAG} · 测试版" \
+              --title "AMC ${TAG} · 构建包" \
               --prerelease \
-              --notes "## AMC ${V}（测试版）
+              --notes "## AMC ${V}（构建包）
 
           - 版本：\`${V}\`
           - 来源 PR：#${PR}
@@ -240,7 +240,7 @@ jobs:
             if [ "${{ steps.version.outputs.official }}" = "true" ]; then
               echo "- 通道：**正式版**（main）"
             else
-              echo "- 通道：**测试版**（dev，PR #${{ steps.version.outputs.pr }}）"
+              echo "- 通道：**构建包**（dev，PR #${{ steps.version.outputs.pr }}）"
             fi
             echo "- Tag：\`${{ steps.version.outputs.tag }}\`"
             echo "- Release：https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag }}"
