@@ -45,7 +45,7 @@ data class ServerConfig(
     val port: Int = DEFAULT_PORT,
 ) {
 
-    /** 由当前模式拼接出的基础地址，如 `https://acanx.com`、`http://192.168.1.10:8080`。 */
+    /** 由当前模式拼接出的基础地址，如 `https://example.com`、`http://192.168.1.10:8080`。 */
     val BASE_URL: String
         get() = when (mode) {
             ServerMode.DOMAIN -> "${scheme()}://${domain.trim().trimEnd('/')}"
@@ -61,7 +61,7 @@ data class ServerConfig(
             when {
                 host.isEmpty() -> "请输入域名"
                 host.length > 253 -> "域名长度不能超过 253 个字符"
-                !DOMAIN_REGEX.matches(host) -> "域名格式不正确，例如 acanx.com"
+                !DOMAIN_REGEX.matches(host) -> "域名格式不正确，例如 example.com"
                 else -> null
             }
         }
@@ -78,7 +78,8 @@ data class ServerConfig(
     }
 
     companion object {
-        const val DEFAULT_DOMAIN = "acanx.com"
+        /** 不提供缺省域名：服务地址由用户自行配置，避免把内网/私有地址写死在代码里。 */
+        const val DEFAULT_DOMAIN = ""
         const val DEFAULT_PORT = 443
 
         private val DOMAIN_REGEX = Regex(

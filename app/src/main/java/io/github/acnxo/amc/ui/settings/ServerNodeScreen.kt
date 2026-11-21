@@ -351,11 +351,11 @@ private fun ServerNodeContent(
                         onValueChange = { domain = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text(text = "域名") },
-                        placeholder = { Text(text = "acanx.com") },
+                        placeholder = { Text(text = "example.com") },
                         singleLine = true,
                         isError = configError != null,
                         supportingText = {
-                            Text(text = configError ?: "例如：api.acanx.com")
+                            Text(text = configError ?: "例如：api.example.com")
                         },
                     )
                 } else {

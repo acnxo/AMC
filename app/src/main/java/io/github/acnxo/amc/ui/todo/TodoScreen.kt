@@ -162,10 +162,11 @@ fun TodoScreen(modifier: Modifier = Modifier) {
     }
 
     fun delete(item: TodoItem) {
-        // 现有 OpenAPI 未提供删除端点，flag_delete 也不可通过 Modify 修改
+        // TODO(#17): 服务端尚未提供软删除端点，Modify 也不接受 flag_delete。
+        // 接口就绪后改为调用 TodoApi.softDelete(item.taskNo) 并刷新列表。
         Toast.makeText(
             context,
-            "服务端暂未提供删除接口，暂时无法删除「${item.title}」",
+            "后端尚未支持软删除，删除功能待服务端提供接口（issue #17）",
             Toast.LENGTH_LONG,
         ).show()
         swipeEnabledId = null
