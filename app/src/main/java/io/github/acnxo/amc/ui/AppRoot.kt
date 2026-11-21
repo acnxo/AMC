@@ -50,6 +50,7 @@ import io.github.acnxo.amc.ui.nav.findLeaf
 import io.github.acnxo.amc.ui.nav.findPath
 import io.github.acnxo.amc.ui.nav.firstLeaf
 import io.github.acnxo.amc.ui.settings.ServerNodeScreen
+import io.github.acnxo.amc.ui.todo.TodoScreen
 import io.github.acnxo.amc.ui.update.UpdateScreen
 import io.github.acnxo.amc.ui.version.VersionInfoScreen
 import io.github.acnxo.amc.ui.web.WebContentScreen
@@ -175,6 +176,10 @@ fun AppRoot(
                     )
 
                     MenuDestination.Update -> UpdateScreen(
+                        modifier = Modifier.fillMaxSize(),
+                    )
+
+                    MenuDestination.Todo -> TodoScreen(
                         modifier = Modifier.fillMaxSize(),
                     )
 

@@ -21,6 +21,9 @@ sealed interface MenuDestination {
     /** 尚未接入业务内容的占位页 */
     data object Placeholder : MenuDestination
 
+    /** 待办事项页（对接 CMS ToDo OpenAPI） */
+    data object Todo : MenuDestination
+
     /** 服务器节点配置页；[kind] 决定编辑内容服务还是 Finv 服务。 */
     data class ServerConfig(val kind: ServerKind) : MenuDestination
 }

@@ -94,7 +94,7 @@ object MenuRepository {
                             id = "content.todo.pending",
                             title = "待办事项",
                             icon = Icons.Filled.PendingActions,
-                            destination = MenuDestination.Placeholder,
+                            destination = MenuDestination.Todo,
                         ),
                         MenuNode(
                             id = "content.todo.done",

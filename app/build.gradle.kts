@@ -160,6 +160,8 @@ dependencies {
     implementation(libs.androidx.material.icons.core)
     // 抽屉菜单各层级图标的补充集合（core 仅内置少量常用图标）
     implementation(libs.androidx.material.icons.extended)
+    // 待办模块的 HTTP 客户端（PATCH 方法）
+    implementation(libs.okhttp)
 
     debugImplementation(libs.androidx.ui.tooling)
 }
