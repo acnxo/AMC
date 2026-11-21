@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.SystemUpdate
 import io.github.acnxo.amc.data.ServerKind
 
 /**
@@ -116,6 +117,12 @@ object MenuRepository {
                     title = "联系我们",
                     icon = Icons.Filled.Email,
                     destination = MenuDestination.Web(HOME_URL),
+                ),
+                MenuNode(
+                    id = "about.update",
+                    title = "版本更新",
+                    icon = Icons.Filled.SystemUpdate,
+                    destination = MenuDestination.Update,
                 ),
                 MenuNode(
                     id = "about.version",

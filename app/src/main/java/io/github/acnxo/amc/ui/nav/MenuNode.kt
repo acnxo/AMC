@@ -15,6 +15,9 @@ sealed interface MenuDestination {
     /** 版本信息页 */
     data object VersionInfo : MenuDestination
 
+    /** 版本更新页：从 GitHub Releases 下载并安装 */
+    data object Update : MenuDestination
+
     /** 服务器节点配置页；[kind] 决定编辑内容服务还是 Finv 服务。 */
     data class ServerConfig(val kind: ServerKind) : MenuDestination
 }
