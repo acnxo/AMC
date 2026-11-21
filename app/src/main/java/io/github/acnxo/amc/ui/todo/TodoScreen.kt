@@ -5,6 +5,12 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -22,13 +28,15 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,11 +54,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -60,6 +71,8 @@ import io.github.acnxo.amc.data.todo.TodoApi
 import io.github.acnxo.amc.data.todo.TodoItem
 import io.github.acnxo.amc.data.todo.TodoReminder
 import io.github.acnxo.amc.data.todo.TodoTime
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Date
 import kotlin.math.roundToInt
@@ -83,6 +96,9 @@ fun TodoScreen(modifier: Modifier = Modifier) {
     }
 
     var todoItems by remember { mutableStateOf<List<TodoItem>>(emptyList()) }
+    // 正在播放「完成」动画的条目，以及已经可以折叠消失的条目
+    var completingIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var hiddenIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var loading by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -152,12 +168,34 @@ fun TodoScreen(modifier: Modifier = Modifier) {
 
     fun toggle(item: TodoItem) {
         val client = api ?: return
+        if (item.isDone) {
+            // 取消完成：直接恢复为待开始，无需动画
+            scope.launch {
+                saving = true
+                runCatching { client.quickComplete(item.taskNo, complete = false) }
+                    .onSuccess { refreshKey++ }
+                    .onFailure { error = it.message ?: "状态更新失败" }
+                saving = false
+            }
+            return
+        }
+        if (item.taskNo in completingIds) return
+
+        // 完成动画三阶段：勾选 → 划线 → 折叠消失
+        completingIds = completingIds + item.taskNo
         scope.launch {
-            saving = true
-            runCatching { client.quickComplete(item.taskNo, complete = !item.isDone) }
-                .onSuccess { refreshKey++ }
-                .onFailure { error = it.message ?: "状态更新失败" }
-            saving = false
+            val request = async { runCatching { client.quickComplete(item.taskNo, complete = true) } }
+            delay(COMPLETE_ANIM_MS)
+            hiddenIds = hiddenIds + item.taskNo
+            delay(REMOVE_ANIM_MS)
+            request.await()
+                .onSuccess { todoItems = todoItems.filterNot { it.taskNo == item.taskNo } }
+                .onFailure {
+                    hiddenIds = hiddenIds - item.taskNo
+                    error = it.message ?: "标记完成失败"
+                }
+            completingIds = completingIds - item.taskNo
+            hiddenIds = hiddenIds - item.taskNo
         }
     }
 
@@ -243,7 +281,7 @@ fun TodoScreen(modifier: Modifier = Modifier) {
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "点击左下角的「+」新建一条",
+                            text = "点击右下角的「+」新建一条",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -256,11 +294,14 @@ fun TodoScreen(modifier: Modifier = Modifier) {
                     )
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 96.dp),
+                        contentPadding = PaddingValues(top = 4.dp, bottom = 96.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         items(items = sorted, key = { it.taskNo }) { item ->
                             TodoRow(
                                 item = item,
+                                completing = item.taskNo in completingIds,
+                                hidden = item.taskNo in hiddenIds,
                                 swipeEnabled = swipeEnabledId == item.taskNo,
                                 onToggle = { toggle(item) },
                                 onOpen = {
@@ -270,7 +311,6 @@ fun TodoScreen(modifier: Modifier = Modifier) {
                                 onLongPress = { swipeEnabledId = item.taskNo },
                                 onDelete = { delete(item) },
                             )
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                         }
                     }
                 }
@@ -283,7 +323,7 @@ fun TodoScreen(modifier: Modifier = Modifier) {
                 editorVisible = true
             },
             modifier = Modifier
-                .align(Alignment.BottomStart)
+                .align(Alignment.BottomEnd)
                 .padding(20.dp),
         ) {
             Icon(Icons.Filled.Add, contentDescription = "新增待办")
@@ -310,6 +350,8 @@ fun TodoScreen(modifier: Modifier = Modifier) {
 @Composable
 private fun TodoRow(
     item: TodoItem,
+    completing: Boolean,
+    hidden: Boolean,
     swipeEnabled: Boolean,
     onToggle: () -> Unit,
     onOpen: () -> Unit,
@@ -320,88 +362,147 @@ private fun TodoRow(
     val revealWidth = with(density) { REVEAL_WIDTH_DP.dp.toPx() }
     var offsetX by remember(item.taskNo) { mutableFloatStateOf(0f) }
 
+    val done = item.isDone || completing
+    // 阶段 2：标题变灰，删除线从左向右延伸
+    val titleColor by animateColorAsState(
+        targetValue = if (done) {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        },
+        animationSpec = tween(durationMillis = STRIKE_ANIM_MS, delayMillis = STRIKE_DELAY_MS),
+        label = "titleColor",
+    )
+    val strikeProgress by animateFloatAsState(
+        targetValue = if (done) 1f else 0f,
+        animationSpec = tween(durationMillis = STRIKE_ANIM_MS, delayMillis = STRIKE_DELAY_MS),
+        label = "strikeProgress",
+    )
+    val strikeColor = MaterialTheme.colorScheme.onSurfaceVariant
+
     LaunchedEffect(swipeEnabled) {
         if (!swipeEnabled) offsetX = 0f
     }
 
-    Box(modifier = Modifier.fillMaxWidth()) {
-        // 背景层：左滑后露出的红色删除区
+    // 阶段 3：整条卡片折叠 + 淡出
+    AnimatedVisibility(
+        visible = !hidden,
+        exit = shrinkVertically(animationSpec = tween(REMOVE_ANIM_MS)) +
+            fadeOut(animationSpec = tween(REMOVE_ANIM_MS)),
+    ) {
         Box(
             modifier = Modifier
-                .matchParentSize()
-                .background(
-                    if (swipeEnabled) MaterialTheme.colorScheme.error else Color.Transparent,
-                ),
-            contentAlignment = Alignment.CenterEnd,
-        ) {
-            if (swipeEnabled) {
-                IconButton(
-                    onClick = onDelete,
-                    enabled = offsetX <= -revealWidth * 0.9f,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Delete,
-                        contentDescription = "删除",
-                        tint = MaterialTheme.colorScheme.onError,
-                    )
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                .offset { IntOffset(offsetX.roundToInt(), 0) }
-                .pointerInput(swipeEnabled) {
-                    if (!swipeEnabled) return@pointerInput
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            offsetX = if (offsetX < -revealWidth / 2) -revealWidth else 0f
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+        ) {
+            // 背景层：长按后左滑露出的红色删除区
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clip(CARD_SHAPE)
+                    .background(
+                        if (swipeEnabled) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            Color.Transparent
                         },
-                        onDragCancel = { offsetX = 0f },
-                    ) { _, dragAmount ->
-                        offsetX = (offsetX + dragAmount).coerceIn(-revealWidth, 0f)
+                    ),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                if (swipeEnabled) {
+                    IconButton(
+                        onClick = onDelete,
+                        enabled = offsetX <= -revealWidth * 0.9f,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = "删除",
+                            tint = MaterialTheme.colorScheme.onError,
+                        )
                     }
                 }
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Checkbox(
-                checked = item.isDone,
-                onCheckedChange = { onToggle() },
-            )
-            Column(
+            }
+
+            Card(
+                shape = CARD_SHAPE,
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 4.dp)
-                    .combinedClickable(
-                        onClick = onOpen,
-                        onLongClick = onLongPress,
-                    ),
-            ) {
-                Text(
-                    text = item.title.ifBlank { "（无标题）" },
-                    style = MaterialTheme.typography.bodyLarge,
-                    textDecoration = if (item.isDone) TextDecoration.LineThrough else null,
-                    color = if (item.isDone) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
+                    .fillMaxWidth()
+                    .offset { IntOffset(offsetX.roundToInt(), 0) }
+                    .pointerInput(swipeEnabled) {
+                        if (!swipeEnabled) return@pointerInput
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                offsetX = if (offsetX < -revealWidth / 2) -revealWidth else 0f
+                            },
+                            onDragCancel = { offsetX = 0f },
+                        ) { _, dragAmount ->
+                            offsetX = (offsetX + dragAmount).coerceIn(-revealWidth, 0f)
+                        }
                     },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                item.gmtDeadline?.let { deadline ->
-                    Text(
-                        text = "提醒：${TodoTime.formatLocal(deadline)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // 阶段 1：Checkbox 自身的勾选动画
+                    Checkbox(
+                        checked = done,
+                        onCheckedChange = { if (!done) onToggle() },
                     )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 4.dp, end = 8.dp)
+                            .combinedClickable(
+                                onClick = onOpen,
+                                onLongClick = onLongPress,
+                            ),
+                    ) {
+                        Text(
+                            text = item.title.ifBlank { "（无标题）" },
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = titleColor,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.drawWithContent {
+                                drawContent()
+                                if (strikeProgress > 0f) {
+                                    val y = size.height * 0.55f
+                                    drawLine(
+                                        color = strikeColor,
+                                        start = Offset(0f, y),
+                                        end = Offset(size.width * strikeProgress, y),
+                                        strokeWidth = 1.5.dp.toPx(),
+                                        cap = StrokeCap.Round,
+                                    )
+                                }
+                            },
+                        )
+                        item.gmtDeadline?.let { deadline ->
+                            Text(
+                                text = "提醒：${TodoTime.formatLocal(deadline)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
 
+private val CARD_SHAPE = RoundedCornerShape(14.dp)
 private const val REVEAL_WIDTH_DP = 88
+
+// 完成动画时间线：勾选 → 划线 → 折叠消失
+private const val STRIKE_DELAY_MS = 120
+private const val STRIKE_ANIM_MS = 360
+private const val COMPLETE_ANIM_MS = STRIKE_DELAY_MS + STRIKE_ANIM_MS + 120L
+private const val REMOVE_ANIM_MS = 300
