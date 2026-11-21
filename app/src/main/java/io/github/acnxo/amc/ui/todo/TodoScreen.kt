@@ -92,7 +92,10 @@ import kotlin.math.roundToInt
  * - 长按标题后左滑露出红色删除按钮（服务端暂无删除接口，点击会提示）。
  */
 @Composable
-fun TodoScreen(modifier: Modifier = Modifier) {
+fun TodoScreen(
+    showDone: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val configRepository = remember { ServerConfigRepository.getInstance(context) }
     val configStates by configRepository.states.collectAsState()
@@ -118,11 +121,13 @@ fun TodoScreen(modifier: Modifier = Modifier) {
         ActivityResultContracts.RequestPermission(),
     ) { }
 
-    LaunchedEffect(api, refreshKey) {
+    LaunchedEffect(api, refreshKey, showDone) {
         val client = api ?: return@LaunchedEffect
         loading = true
         error = null
-        runCatching { client.page() }
+        runCatching {
+            client.page(filter = if (showDone) TodoApi.FILTER_DONE else TodoApi.FILTER_ALL)
+        }
             .onSuccess { todoItems = it.items }
             .onFailure { error = it.message ?: "加载失败" }
         loading = false
@@ -248,7 +253,11 @@ fun TodoScreen(modifier: Modifier = Modifier) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "未完成 ${todoItems.count { !it.isDone }} 项 · 共 ${todoItems.size} 项",
+                    text = if (showDone) {
+                        "已完成 ${todoItems.count { it.isDone }} 项"
+                    } else {
+                        "未完成 ${todoItems.count { !it.isDone }} 项"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -273,7 +282,8 @@ fun TodoScreen(modifier: Modifier = Modifier) {
                     }
                 }
 
-                todoItems.isEmpty() -> {
+                (!showDone && todoItems.none { !it.isDone }) ||
+                    (showDone && todoItems.none { it.isDone }) -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -282,20 +292,28 @@ fun TodoScreen(modifier: Modifier = Modifier) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = "还没有待办事项",
+                            text = if (showDone) "还没有已完成的事项" else "还没有待办事项",
                             style = MaterialTheme.typography.titleMedium,
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "点击右下角的「+」新建一条",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        if (!showDone) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "点击右下角的「+」新建一条",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
 
                 else -> {
-                    val sorted = todoItems.sortedWith(
+                    // 待办页只展示未完成项；已完成页只展示已完成项
+                    val visible = if (showDone) {
+                        todoItems.filter { it.isDone }
+                    } else {
+                        todoItems.filterNot { it.isDone }
+                    }
+                    val sorted = visible.sortedWith(
                         compareBy<TodoItem> { it.isDone }.thenBy { it.gmtDeadline ?: "9999" },
                     )
                     LazyColumn(
@@ -323,22 +341,24 @@ fun TodoScreen(modifier: Modifier = Modifier) {
             }
         }
 
-        FloatingActionButton(
-            onClick = {
-                editing = null
-                editorVisible = true
-            },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(20.dp),
-            // Material Design 2 风格：圆形按钮 + 层级阴影
-            shape = CircleShape,
-            elevation = FloatingActionButtonDefaults.elevation(
-                defaultElevation = 6.dp,
-                pressedElevation = 12.dp,
-            ),
-        ) {
-            Icon(Icons.Filled.Add, contentDescription = "新增待办")
+        if (!showDone) {
+            FloatingActionButton(
+                onClick = {
+                    editing = null
+                    editorVisible = true
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(20.dp),
+                // Material Design 2 风格：圆形按钮 + 层级阴影
+                shape = CircleShape,
+                elevation = FloatingActionButtonDefaults.elevation(
+                    defaultElevation = 6.dp,
+                    pressedElevation = 12.dp,
+                ),
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = "新增待办")
+            }
         }
     }
 

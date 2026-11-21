@@ -179,7 +179,8 @@ fun AppRoot(
                         modifier = Modifier.fillMaxSize(),
                     )
 
-                    MenuDestination.Todo -> TodoScreen(
+                    is MenuDestination.Todo -> TodoScreen(
+                        showDone = destination.showDone,
                         modifier = Modifier.fillMaxSize(),
                     )
 

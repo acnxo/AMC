@@ -94,13 +94,13 @@ object MenuRepository {
                             id = "content.todo.pending",
                             title = "待办事项",
                             icon = Icons.Filled.PendingActions,
-                            destination = MenuDestination.Todo,
+                            destination = MenuDestination.Todo(showDone = false),
                         ),
                         MenuNode(
                             id = "content.todo.done",
                             title = "已完成事项",
                             icon = Icons.Filled.CheckCircle,
-                            destination = MenuDestination.Placeholder,
+                            destination = MenuDestination.Todo(showDone = true),
                         ),
                         MenuNode(
                             id = "content.todo.stats",
