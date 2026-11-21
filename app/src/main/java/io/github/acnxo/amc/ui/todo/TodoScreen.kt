@@ -70,6 +70,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.acnxo.amc.data.ServerConfigRepository
 import io.github.acnxo.amc.data.ServerKind
 import io.github.acnxo.amc.data.todo.TodoApi
@@ -482,7 +483,11 @@ private fun TodoRow(
                     ) {
                         Text(
                             text = item.title.ifBlank { "（无标题）" },
-                            style = MaterialTheme.typography.bodyLarge,
+                            // 比 bodyLarge（16sp）大两级，突出标题
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontSize = 20.sp,
+                                lineHeight = 26.sp,
+                            ),
                             fontWeight = FontWeight.SemiBold,
                             color = titleColor,
                             maxLines = 2,
