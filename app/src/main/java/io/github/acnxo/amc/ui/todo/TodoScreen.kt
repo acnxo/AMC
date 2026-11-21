@@ -65,6 +65,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -411,6 +412,8 @@ private fun TodoRow(
         label = "strikeProgress",
     )
     val strikeColor = MaterialTheme.colorScheme.onSurfaceVariant
+    // 多行标题需要按行绘制删除线，这里保存实际排版结果
+    var titleLayout by remember(item.taskNo) { mutableStateOf<TextLayoutResult?>(null) }
 
     LaunchedEffect(swipeEnabled) {
         if (!swipeEnabled) offsetX = 0f
@@ -512,14 +515,22 @@ private fun TodoRow(
                             color = titleColor,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
+                            onTextLayout = { titleLayout = it },
                             modifier = Modifier.drawWithContent {
                                 drawContent()
-                                if (strikeProgress > 0f) {
-                                    val y = size.height * 0.55f
+                                if (strikeProgress <= 0f) return@drawWithContent
+                                val layout = titleLayout ?: return@drawWithContent
+                                // 逐行绘制：每行单独取水平范围与垂直中线，多行时不会只划在首行
+                                for (line in 0 until layout.lineCount) {
+                                    val top = layout.getLineTop(line)
+                                    val bottom = layout.getLineBottom(line)
+                                    val left = layout.getLineLeft(line)
+                                    val right = layout.getLineRight(line)
+                                    val y = (top + bottom) / 2f
                                     drawLine(
                                         color = strikeColor,
-                                        start = Offset(0f, y),
-                                        end = Offset(size.width * strikeProgress, y),
+                                        start = Offset(left, y),
+                                        end = Offset(left + (right - left) * strikeProgress, y),
                                         strokeWidth = 1.5.dp.toPx(),
                                         cap = StrokeCap.Round,
                                     )
