@@ -3,14 +3,19 @@ package io.github.acnxo.amc.ui.nav
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.NewReleases
+import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Smartphone
@@ -64,6 +69,38 @@ object MenuRepository {
                             title = "AHA",
                             icon = Icons.Filled.Apps,
                             destination = MenuDestination.Web(HOME_URL),
+                        ),
+                    ),
+                ),
+                MenuNode(
+                    id = "products.content",
+                    title = "内容管理",
+                    icon = Icons.Filled.Folder,
+                    children = listOf(
+                        MenuNode(
+                            id = "products.content.todo",
+                            title = "待办",
+                            icon = Icons.Filled.Checklist,
+                            children = listOf(
+                                MenuNode(
+                                    id = "products.content.todo.pending",
+                                    title = "待办事项",
+                                    icon = Icons.Filled.PendingActions,
+                                    destination = MenuDestination.Placeholder,
+                                ),
+                                MenuNode(
+                                    id = "products.content.todo.done",
+                                    title = "已完成事项",
+                                    icon = Icons.Filled.CheckCircle,
+                                    destination = MenuDestination.Placeholder,
+                                ),
+                                MenuNode(
+                                    id = "products.content.todo.stats",
+                                    title = "统计分析",
+                                    icon = Icons.Filled.BarChart,
+                                    destination = MenuDestination.Placeholder,
+                                ),
+                            ),
                         ),
                     ),
                 ),

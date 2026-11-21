@@ -178,6 +178,11 @@ fun AppRoot(
                         modifier = Modifier.fillMaxSize(),
                     )
 
+                    MenuDestination.Placeholder -> EmptyPlaceholder(
+                        modifier = Modifier.fillMaxSize(),
+                        message = "「${selectedNode?.title.orEmpty()}」功能正在开发中",
+                    )
+
                     is MenuDestination.ServerConfig -> ServerNodeScreen(
                         kind = destination.kind,
                         modifier = Modifier.fillMaxSize(),
@@ -191,7 +196,10 @@ fun AppRoot(
 }
 
 @Composable
-private fun EmptyPlaceholder(modifier: Modifier = Modifier) {
+private fun EmptyPlaceholder(
+    modifier: Modifier = Modifier,
+    message: String = "请从左侧菜单选择一个页面",
+) {
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.Center,
@@ -205,7 +213,7 @@ private fun EmptyPlaceholder(modifier: Modifier = Modifier) {
         )
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-            text = "请从左侧菜单选择一个页面",
+            text = message,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
