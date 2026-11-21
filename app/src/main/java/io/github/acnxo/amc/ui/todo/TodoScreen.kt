@@ -106,8 +106,9 @@ fun TodoScreen(
     }
 
     var todoItems by remember { mutableStateOf<List<TodoItem>>(emptyList()) }
-    // 正在播放「完成」动画的条目，以及已经可以折叠消失的条目
+    // 正在播放「完成 / 取消完成」动画的条目，以及已经可以折叠消失的条目
     var completingIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var uncompletingIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var hiddenIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var loading by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
@@ -178,19 +179,9 @@ fun TodoScreen(
         }
     }
 
-    fun toggle(item: TodoItem) {
+    /** 待办页：标记完成（勾选变黄 → 划线 → 折叠消失）。 */
+    fun complete(item: TodoItem) {
         val client = api ?: return
-        if (item.isDone) {
-            // 取消完成：直接恢复为待开始，无需动画
-            scope.launch {
-                saving = true
-                runCatching { client.quickComplete(item.taskNo, complete = false) }
-                    .onSuccess { refreshKey++ }
-                    .onFailure { error = it.message ?: "状态更新失败" }
-                saving = false
-            }
-            return
-        }
         if (item.taskNo in completingIds) return
 
         // 完成动画三阶段：勾选 → 划线 → 折叠消失
@@ -207,6 +198,28 @@ fun TodoScreen(
                     error = it.message ?: "标记完成失败"
                 }
             completingIds = completingIds - item.taskNo
+            hiddenIds = hiddenIds - item.taskNo
+        }
+    }
+
+    /** 已完成页：恢复为未完成（取消勾选 → 删除线收回 → 折叠消失）。 */
+    fun uncomplete(item: TodoItem) {
+        val client = api ?: return
+        if (item.taskNo in uncompletingIds) return
+        uncompletingIds = uncompletingIds + item.taskNo
+        scope.launch {
+            val request = async { runCatching { client.quickComplete(item.taskNo, complete = false) } }
+            // 先等勾选框取消选中、删除线收回
+            delay((STRIKE_DELAY_MS + STRIKE_ANIM_MS).toLong())
+            hiddenIds = hiddenIds + item.taskNo
+            delay(REMOVE_ANIM_MS.toLong())
+            request.await()
+                .onSuccess { todoItems = todoItems.filterNot { it.taskNo == item.taskNo } }
+                .onFailure {
+                    hiddenIds = hiddenIds - item.taskNo
+                    error = it.message ?: "恢复为未完成失败"
+                }
+            uncompletingIds = uncompletingIds - item.taskNo
             hiddenIds = hiddenIds - item.taskNo
         }
     }
@@ -326,9 +339,12 @@ fun TodoScreen(
                             TodoRow(
                                 item = item,
                                 completing = item.taskNo in completingIds,
+                                uncompleting = item.taskNo in uncompletingIds,
                                 hidden = item.taskNo in hiddenIds,
                                 swipeEnabled = swipeEnabledId == item.taskNo,
-                                onToggle = { toggle(item) },
+                                onToggle = {
+                                    if (item.isDone) uncomplete(item) else complete(item)
+                                },
                                 onOpen = {
                                     editing = item
                                     editorVisible = true
@@ -384,6 +400,7 @@ fun TodoScreen(
 private fun TodoRow(
     item: TodoItem,
     completing: Boolean,
+    uncompleting: Boolean,
     hidden: Boolean,
     swipeEnabled: Boolean,
     onToggle: () -> Unit,
@@ -395,7 +412,8 @@ private fun TodoRow(
     val revealWidth = with(density) { REVEAL_WIDTH_DP.dp.toPx() }
     var offsetX by remember(item.taskNo) { mutableFloatStateOf(0f) }
 
-    val done = item.isDone || completing
+    // 取消完成时先让勾选框与删除线回退，动画结束后条目再折叠消失
+    val done = (item.isDone || completing) && !uncompleting
     // 阶段 2：标题变灰，删除线从左向右延伸
     val titleColor by animateColorAsState(
         targetValue = if (done) {
@@ -488,7 +506,8 @@ private fun TodoRow(
                     // 阶段 1：勾选框选中——黄色强调色 + 勾号绘制动画
                     Checkbox(
                         checked = done,
-                        onCheckedChange = { if (!done) onToggle() },
+                        // 状态由服务端与动画驱动，这里只负责把点击交回上层
+                        onCheckedChange = { onToggle() },
                         colors = CheckboxDefaults.colors(
                             checkedColor = DONE_ACCENT,
                             checkmarkColor = DONE_CHECKMARK,
