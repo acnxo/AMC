@@ -73,42 +73,42 @@ object MenuRepository {
                     ),
                 ),
                 MenuNode(
-                    id = "products.content",
-                    title = "内容管理",
-                    icon = Icons.Filled.Folder,
-                    children = listOf(
-                        MenuNode(
-                            id = "products.content.todo",
-                            title = "待办",
-                            icon = Icons.Filled.Checklist,
-                            children = listOf(
-                                MenuNode(
-                                    id = "products.content.todo.pending",
-                                    title = "待办事项",
-                                    icon = Icons.Filled.PendingActions,
-                                    destination = MenuDestination.Placeholder,
-                                ),
-                                MenuNode(
-                                    id = "products.content.todo.done",
-                                    title = "已完成事项",
-                                    icon = Icons.Filled.CheckCircle,
-                                    destination = MenuDestination.Placeholder,
-                                ),
-                                MenuNode(
-                                    id = "products.content.todo.stats",
-                                    title = "统计分析",
-                                    icon = Icons.Filled.BarChart,
-                                    destination = MenuDestination.Placeholder,
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-                MenuNode(
                     id = "products.desktop",
                     title = "桌面工具",
                     icon = Icons.Filled.Computer,
                     destination = MenuDestination.Web(HOME_URL),
+                ),
+            ),
+        ),
+        MenuNode(
+            id = "content",
+            title = "内容管理",
+            icon = Icons.Filled.Folder,
+            children = listOf(
+                MenuNode(
+                    id = "content.todo",
+                    title = "待办",
+                    icon = Icons.Filled.Checklist,
+                    children = listOf(
+                        MenuNode(
+                            id = "content.todo.pending",
+                            title = "待办事项",
+                            icon = Icons.Filled.PendingActions,
+                            destination = MenuDestination.Placeholder,
+                        ),
+                        MenuNode(
+                            id = "content.todo.done",
+                            title = "已完成事项",
+                            icon = Icons.Filled.CheckCircle,
+                            destination = MenuDestination.Placeholder,
+                        ),
+                        MenuNode(
+                            id = "content.todo.stats",
+                            title = "统计分析",
+                            icon = Icons.Filled.BarChart,
+                            destination = MenuDestination.Placeholder,
+                        ),
+                    ),
                 ),
             ),
         ),
