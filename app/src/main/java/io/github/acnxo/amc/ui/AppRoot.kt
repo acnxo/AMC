@@ -173,7 +173,8 @@ fun AppRoot(
                         modifier = Modifier.fillMaxSize(),
                     )
 
-                    MenuDestination.ServerConfig -> ServerNodeScreen(
+                    is MenuDestination.ServerConfig -> ServerNodeScreen(
+                        kind = destination.kind,
                         modifier = Modifier.fillMaxSize(),
                     )
 

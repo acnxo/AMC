@@ -14,6 +14,8 @@ import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Smartphone
+import androidx.compose.material.icons.filled.Storage
+import io.github.acnxo.amc.data.ServerKind
 
 /**
  * 菜单数据源。
@@ -83,10 +85,16 @@ object MenuRepository {
                     icon = Icons.Filled.Cloud,
                     children = listOf(
                         MenuNode(
-                            id = "settings.service.server",
-                            title = "服务器节点",
+                            id = "settings.service.content",
+                            title = "内容服务节点",
                             icon = Icons.Filled.Dns,
-                            destination = MenuDestination.ServerConfig,
+                            destination = MenuDestination.ServerConfig(ServerKind.CONTENT),
+                        ),
+                        MenuNode(
+                            id = "settings.service.finv",
+                            title = "Finv服务节点",
+                            icon = Icons.Filled.Storage,
+                            destination = MenuDestination.ServerConfig(ServerKind.FINV),
                         ),
                     ),
                 ),

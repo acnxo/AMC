@@ -1,6 +1,7 @@
 package io.github.acnxo.amc.ui.nav
 
 import androidx.compose.ui.graphics.vector.ImageVector
+import io.github.acnxo.amc.data.ServerKind
 
 /**
  * 叶子菜单打开的内置页面类型。
@@ -14,8 +15,8 @@ sealed interface MenuDestination {
     /** 版本信息页 */
     data object VersionInfo : MenuDestination
 
-    /** 服务器节点配置页 */
-    data object ServerConfig : MenuDestination
+    /** 服务器节点配置页；[kind] 决定编辑内容服务还是 Finv 服务。 */
+    data class ServerConfig(val kind: ServerKind) : MenuDestination
 }
 
 /**

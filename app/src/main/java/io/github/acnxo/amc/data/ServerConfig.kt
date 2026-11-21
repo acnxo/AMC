@@ -1,10 +1,35 @@
 package io.github.acnxo.amc.data
 
-/** 服务器连接模式：域名 / IP + 端口。 */
-enum class ServerMode {
-    DOMAIN,
-    IP_PORT,
+/**
+ * 服务节点类型。
+ *
+ * 两类节点各自维护一份独立的配置档案（profile）列表，互不影响。
+ */
+enum class ServerKind {
+    /** 内容服务节点 */
+    CONTENT,
+
+    /** Finv 服务节点 */
+    FINV,
 }
+
+/** 服务器连接模式：域名 / IP + 端口。 */
+enum class ServerMode(val label: String) {
+    DOMAIN("域名"),
+    IP_PORT("IP + 端口"),
+}
+
+/**
+ * 一份服务节点配置档案（profile）。
+ *
+ * [name] 由用户填写，用于在多个配置之间区分；[id] 为内部稳定标识，
+ * 不随配置名或内容修改而变化。
+ */
+data class ServerProfile(
+    val id: String,
+    val name: String,
+    val config: ServerConfig = ServerConfig(),
+)
 
 /**
  * 云端服务基础地址配置。
