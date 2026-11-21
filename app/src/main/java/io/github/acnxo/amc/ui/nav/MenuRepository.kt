@@ -85,10 +85,10 @@ object MenuRepository {
                     icon = Icons.Filled.Cloud,
                     children = listOf(
                         MenuNode(
-                            id = "settings.service.content",
+                            id = "settings.service.cms",
                             title = "内容服务节点",
                             icon = Icons.Filled.Dns,
-                            destination = MenuDestination.ServerConfig(ServerKind.CONTENT),
+                            destination = MenuDestination.ServerConfig(ServerKind.CMS),
                         ),
                         MenuNode(
                             id = "settings.service.finv",

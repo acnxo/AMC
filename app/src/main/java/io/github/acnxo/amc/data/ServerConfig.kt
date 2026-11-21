@@ -6,8 +6,8 @@ package io.github.acnxo.amc.data
  * 两类节点各自维护一份独立的配置档案（profile）列表，互不影响。
  */
 enum class ServerKind {
-    /** 内容服务节点 */
-    CONTENT,
+    /** 内容服务节点（CMS） */
+    CMS,
 
     /** Finv 服务节点 */
     FINV,

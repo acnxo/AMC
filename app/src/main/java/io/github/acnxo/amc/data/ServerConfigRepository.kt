@@ -28,7 +28,7 @@ data class ServerNodeState(
  *
  * ```kotlin
  * val baseUrl = ServerConfigRepository.getInstance(context)
- *     .activeConfig(ServerKind.CONTENT)?.baseUrl
+ *     .activeConfig(ServerKind.CMS)?.baseUrl
  * ```
  *
  * 或订阅 [states] 变化，在配置切换后重建 API 客户端。
@@ -119,9 +119,10 @@ class ServerConfigRepository private constructor(context: Context) {
      * 把它迁移成内容服务节点下名为“默认配置”的档案，避免用户配置丢失。
      */
     private fun migrateLegacyIfNeeded() {
+        migrateContentKeysToCms()
         if (prefs.getBoolean(KEY_MIGRATED, false)) return
         val editor = prefs.edit().putBoolean(KEY_MIGRATED, true)
-        val alreadyPresent = prefs.getString(keyProfiles(ServerKind.CONTENT), null) != null
+        val alreadyPresent = prefs.getString(keyProfiles(ServerKind.CMS), null) != null
         if (!alreadyPresent && prefs.contains(KEY_LEGACY_MODE)) {
             val legacy = ServerProfile(
                 id = UUID.randomUUID().toString(),
@@ -137,8 +138,22 @@ class ServerConfigRepository private constructor(context: Context) {
                     port = prefs.getInt(KEY_LEGACY_PORT, ServerConfig.DEFAULT_PORT),
                 ),
             )
-            editor.putString(keyProfiles(ServerKind.CONTENT), toJson(listOf(legacy)))
-            editor.putString(keySelected(ServerKind.CONTENT), legacy.id)
+            editor.putString(keyProfiles(ServerKind.CMS), toJson(listOf(legacy)))
+            editor.putString(keySelected(ServerKind.CMS), legacy.id)
+        }
+        editor.apply()
+    }
+
+    /**
+     * 枚举值 CONTENT 更名为 CMS 后，把旧的存储键内容搬到新键，
+     * 避免已保存的配置因键名变化而丢失。
+     */
+    private fun migrateContentKeysToCms() {
+        if (prefs.contains(keyProfiles(ServerKind.CMS))) return
+        val legacyProfiles = prefs.getString(KEY_LEGACY_PROFILES_CONTENT, null) ?: return
+        val editor = prefs.edit().putString(keyProfiles(ServerKind.CMS), legacyProfiles)
+        prefs.getString(KEY_LEGACY_SELECTED_CONTENT, null)?.let { selected ->
+            editor.putString(keySelected(ServerKind.CMS), selected)
         }
         editor.apply()
     }
@@ -196,6 +211,9 @@ class ServerConfigRepository private constructor(context: Context) {
     companion object {
         private const val PREFS_NAME = "amc_server_config"
         private const val KEY_MIGRATED = "migrated_to_profiles"
+        // CONTENT → CMS 改名前的存储键
+        private const val KEY_LEGACY_PROFILES_CONTENT = "profiles_content"
+        private const val KEY_LEGACY_SELECTED_CONTENT = "selected_content"
 
         private const val KEY_LEGACY_MODE = "mode"
         private const val KEY_LEGACY_DOMAIN = "domain"

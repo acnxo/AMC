@@ -61,7 +61,7 @@ import java.util.UUID
 /** 服务节点页标题。 */
 private val ServerKind.pageTitle: String
     get() = when (this) {
-        ServerKind.CONTENT -> "内容服务节点"
+        ServerKind.CMS -> "内容服务节点"
         ServerKind.FINV -> "Finv服务节点"
     }
 
@@ -73,7 +73,7 @@ private val ServerKind.pageTitle: String
  * 长按某一份可删除。保存后写入本地，后续 API 客户端可直接读取：
  *
  * ```kotlin
- * ServerConfigRepository.getInstance(context).activeConfig(ServerKind.CONTENT)?.baseUrl
+ * ServerConfigRepository.getInstance(context).activeConfig(ServerKind.CMS)?.baseUrl
  * ```
  */
 @Composable
