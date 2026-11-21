@@ -105,7 +105,7 @@ jobs:
           fi
 
       - name: Prepare release signing key
-        if: steps.version.outputs.skip == 'false' && steps.version.outputs.official == 'true'
+        if: steps.version.outputs.skip == 'false'
         id: keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
@@ -114,12 +114,12 @@ jobs:
           if [ -n "${KEYSTORE_BASE64:-}" ]; then
             printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
             echo "path=$RUNNER_TEMP/release.keystore" >> "$GITHUB_OUTPUT"
-            echo "signing=正式签名证书" >> "$GITHUB_OUTPUT"
-            echo "已加载仓库配置的正式签名证书"
+            echo "signing=固定签名证书" >> "$GITHUB_OUTPUT"
+            echo "已加载仓库配置的固定签名证书"
           else
             echo "path=" >> "$GITHUB_OUTPUT"
-            echo "signing=debug 证书（未配置 RELEASE_KEYSTORE_BASE64）" >> "$GITHUB_OUTPUT"
-            echo "::warning::仓库未配置 RELEASE_KEYSTORE_BASE64，正式包将使用 debug 证书签名（可安装，但不可用于应用商店）"
+            echo "signing=debug 证书（未配置 RELEASE_KEYSTORE_BASE64，不同构建之间签名不一致）" >> "$GITHUB_OUTPUT"
+            echo "::warning::仓库未配置 RELEASE_KEYSTORE_BASE64，本次将使用随机 debug 证书，包之间无法互相覆盖安装"
           fi
 
       - name: Set up JDK 21
@@ -221,13 +221,13 @@ jobs:
           - 版本：\`${V}\`
           - 来源 PR：#${PR}
           - 提交：\`${GITHUB_SHA}\`
-          - 签名：debug 证书（仅供测试安装）
+          - 签名：${SIGNING}
 
           | 文件 | 说明 |
           | --- | --- |
           | \`AMC-${V}-debug.apk\` | debug 构建 |
-          | \`AMC-${V}-release.apk\` | release 构建（debug 签名） |
-          | \`AMC-${V}-release.aab\` | release App Bundle（debug 签名） |
+          | \`AMC-${V}-release.apk\` | release 构建 |
+          | \`AMC-${V}-release.aab\` | release App Bundle |
           | \`SHA256SUMS.txt\` | SHA-256 校验和 |"
           fi
 
