@@ -1,6 +1,8 @@
 [versions]
 agp = "9.5.1"
-kotlin = "2.4.21"
+# AGP 9 起内置 Kotlin 支持，编译器版本由 AGP 捆绑的 KGP 决定（9.5.1 为 2.2.10）。
+# 此处版本仅用于 Compose 编译器插件，必须与内置 KGP 保持一致。
+kotlin = "2.2.10"
 coreKtx = "1.19.1"
 lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.9.3"
@@ -20,5 +22,5 @@ androidx-material-icons-core = { group = "androidx.compose.material", name = "ma
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+# AGP 9 内置 Kotlin 后不再需要 org.jetbrains.kotlin.android 插件
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
