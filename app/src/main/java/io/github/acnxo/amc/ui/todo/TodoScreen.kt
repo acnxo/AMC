@@ -6,7 +6,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateColorAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
@@ -44,6 +44,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -67,6 +68,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import io.github.acnxo.amc.data.ServerConfigRepository
 import io.github.acnxo.amc.data.ServerKind
@@ -190,7 +192,7 @@ fun TodoScreen(modifier: Modifier = Modifier) {
             val request = async { runCatching { client.quickComplete(item.taskNo, complete = true) } }
             delay(COMPLETE_ANIM_MS)
             hiddenIds = hiddenIds + item.taskNo
-            delay(REMOVE_ANIM_MS)
+            delay(REMOVE_ANIM_MS.toLong())
             request.await()
                 .onSuccess { todoItems = todoItems.filterNot { it.taskNo == item.taskNo } }
                 .onFailure {
@@ -396,8 +398,8 @@ private fun TodoRow(
     // 阶段 3：整条卡片折叠 + 淡出
     AnimatedVisibility(
         visible = !hidden,
-        exit = shrinkVertically(animationSpec = tween(REMOVE_ANIM_MS)) +
-            fadeOut(animationSpec = tween(REMOVE_ANIM_MS)),
+        exit = shrinkVertically(animationSpec = tween<IntSize>(REMOVE_ANIM_MS)) +
+            fadeOut(animationSpec = tween<Float>(REMOVE_ANIM_MS)),
     ) {
         Box(
             modifier = Modifier
@@ -459,10 +461,15 @@ private fun TodoRow(
                         .padding(horizontal = 8.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // 阶段 1：Checkbox 自身的勾选动画
+                    // 阶段 1：勾选框选中——黄色强调色 + 勾号绘制动画
                     Checkbox(
                         checked = done,
                         onCheckedChange = { if (!done) onToggle() },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = DONE_ACCENT,
+                            checkmarkColor = DONE_CHECKMARK,
+                            uncheckedColor = MaterialTheme.colorScheme.outline,
+                        ),
                     )
                     Column(
                         modifier = Modifier
@@ -509,6 +516,10 @@ private fun TodoRow(
 }
 
 private val CARD_SHAPE = RoundedCornerShape(14.dp)
+
+// 完成状态的强调色：鲜明黄色填充 + 深色勾号，保证浅色/深色主题下都能看清
+private val DONE_ACCENT = Color(0xFFFFC107)
+private val DONE_CHECKMARK = Color(0xFF3E2723)
 private const val REVEAL_WIDTH_DP = 88
 
 // 完成动画时间线：勾选 → 划线 → 折叠消失
