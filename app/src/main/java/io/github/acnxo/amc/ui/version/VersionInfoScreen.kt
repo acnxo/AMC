@@ -26,7 +26,7 @@ import io.github.acnxo.amc.BuildConfig
 fun VersionInfoScreen(modifier: Modifier = Modifier) {
     val rows = listOf(
         "版本名称" to BuildConfig.VERSION_NAME,
-        "版本号（versionCode）" to BuildConfig.VERSION_CODE.toString(),
+        "版本号[VersionCode]" to BuildConfig.VERSION_CODE.toString(),
         "包名" to BuildConfig.APPLICATION_ID,
         "构建类型" to BuildConfig.BUILD_TYPE,
         "Git 提交" to BuildConfig.GIT_SHA,
