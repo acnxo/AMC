@@ -61,7 +61,8 @@ fun TodoEditDialog(
                     onValueChange = { title = it },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text(text = "标题") },
-                    singleLine = true,
+                    minLines = 1,
+                    maxLines = 4,
                 )
                 OutlinedTextField(
                     value = content,

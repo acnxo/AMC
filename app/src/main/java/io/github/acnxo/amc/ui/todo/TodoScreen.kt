@@ -392,15 +392,6 @@ private fun TodoRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                item.content?.takeIf { it.isNotBlank() }?.let { content ->
-                    Text(
-                        text = content,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
                 item.gmtDeadline?.let { deadline ->
                     Text(
                         text = "提醒：${TodoTime.formatLocal(deadline)}",
