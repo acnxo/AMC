@@ -2,7 +2,6 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
 
@@ -126,9 +125,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
+    // 内置 Kotlin 下 kotlin.compilerOptions.jvmTarget 默认跟随
+    // android.compileOptions.targetCompatibility（此处为 17），无需单独设置。
 
     buildFeatures {
         compose = true
