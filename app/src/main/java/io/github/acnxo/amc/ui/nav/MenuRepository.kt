@@ -1,9 +1,19 @@
 package io.github.acnxo.amc.ui.nav
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.NewReleases
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Smartphone
 
 /**
  * 菜单数据源。
@@ -11,6 +21,9 @@ import androidx.compose.material.icons.filled.ShoppingCart
  * 目前是写死的示例数据，后续如果需要动态下发（服务端配置 / 本地数据库），
  * 只要把 [defaultMenus] 换成从数据源解析出来的 List<MenuNode> 即可，
  * 界面层完全不用改。
+ *
+ * 约定：每个节点（无论分组还是叶子、无论第几级）都带 [MenuNode.icon]，
+ * 抽屉里统一在文字左侧展示，保证各层级的视觉结构一致。
  */
 object MenuRepository {
 
@@ -35,15 +48,18 @@ object MenuRepository {
                 MenuNode(
                     id = "products.mobile",
                     title = "移动应用",
+                    icon = Icons.Filled.Smartphone,
                     children = listOf(
                         MenuNode(
                             id = "products.mobile.amc",
                             title = "AMC",
+                            icon = Icons.Filled.Android,
                             destination = MenuDestination.Web(HOME_URL),
                         ),
                         MenuNode(
                             id = "products.mobile.aha",
                             title = "AHA",
+                            icon = Icons.Filled.Apps,
                             destination = MenuDestination.Web(HOME_URL),
                         ),
                     ),
@@ -51,6 +67,7 @@ object MenuRepository {
                 MenuNode(
                     id = "products.desktop",
                     title = "桌面工具",
+                    icon = Icons.Filled.Computer,
                     destination = MenuDestination.Web(HOME_URL),
                 ),
             ),
@@ -58,14 +75,17 @@ object MenuRepository {
         MenuNode(
             id = "settings",
             title = "设置",
+            icon = Icons.Filled.Settings,
             children = listOf(
                 MenuNode(
                     id = "settings.service",
                     title = "服务",
+                    icon = Icons.Filled.Cloud,
                     children = listOf(
                         MenuNode(
                             id = "settings.service.server",
                             title = "服务器节点",
+                            icon = Icons.Filled.Dns,
                             destination = MenuDestination.ServerConfig,
                         ),
                     ),
@@ -80,16 +100,19 @@ object MenuRepository {
                 MenuNode(
                     id = "about.intro",
                     title = "公司介绍",
+                    icon = Icons.Filled.Business,
                     destination = MenuDestination.Web(HOME_URL),
                 ),
                 MenuNode(
                     id = "about.contact",
                     title = "联系我们",
+                    icon = Icons.Filled.Email,
                     destination = MenuDestination.Web(HOME_URL),
                 ),
                 MenuNode(
                     id = "about.version",
                     title = "版本信息",
+                    icon = Icons.Filled.NewReleases,
                     destination = MenuDestination.VersionInfo,
                 ),
             ),
