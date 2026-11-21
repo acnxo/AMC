@@ -102,15 +102,15 @@ MenuNode(
   - **IP + 端口**：IPv4 地址 + 1-65535 端口，如 `192.168.1.10:8080`；
 - 可选 HTTPS / HTTP；
 - 保存后写入本地 `SharedPreferences`（`amc_server_config`），重启应用仍然生效；
-- 页面会实时预览拼接出的 `baseUrl`，并展示当前生效配置。
+- 页面会实时预览拼接出的 `BASE_URL`，并展示当前生效配置。
 
 后续接入云端 API 时可直接使用：
 
 ```kotlin
 val repository = ServerConfigRepository.getInstance(context)
-val baseUrl = repository.current().baseUrl          // 一次性读取
+val BASE_URL = repository.current().BASE_URL          // 一次性读取
 repository.config.collect { config ->               // 或订阅变化
-    apiClient.rebuild(config.baseUrl)
+    apiClient.rebuild(config.BASE_URL)
 }
 ```
 

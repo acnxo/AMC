@@ -73,7 +73,7 @@ private val ServerKind.pageTitle: String
  * 长按某一份可删除。保存后写入本地，后续 API 客户端可直接读取：
  *
  * ```kotlin
- * ServerConfigRepository.getInstance(context).activeConfig(ServerKind.CMS)?.baseUrl
+ * ServerConfigRepository.getInstance(context).activeConfig(ServerKind.CMS)?.BASE_URL
  * ```
  */
 @Composable
@@ -219,7 +219,7 @@ private fun ServerNodeContent(
                                     style = MaterialTheme.typography.bodyLarge,
                                 )
                                 Text(
-                                    text = profile.config.baseUrl,
+                                    text = profile.config.BASE_URL,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -390,13 +390,13 @@ private fun ServerNodeContent(
 
                 Column {
                     Text(
-                        text = "基础地址（baseUrl）",
+                        text = "基础地址（BASE_URL）",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = draft.baseUrl,
+                        text = draft.BASE_URL,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -449,7 +449,7 @@ private fun ServerNodeContent(
                     )
                 } else {
                     Text(
-                        text = "${selectedProfile.name} · ${selectedProfile.config.baseUrl}",
+                        text = "${selectedProfile.name} · ${selectedProfile.config.BASE_URL}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

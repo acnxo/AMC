@@ -27,8 +27,8 @@ data class ServerNodeState(
  * 同一时刻各类型各有一份“当前生效”配置。后续接入 API 时可直接：
  *
  * ```kotlin
- * val baseUrl = ServerConfigRepository.getInstance(context)
- *     .activeConfig(ServerKind.CMS)?.baseUrl
+ * val BASE_URL = ServerConfigRepository.getInstance(context)
+ *     .activeConfig(ServerKind.CMS)?.BASE_URL
  * ```
  *
  * 或订阅 [states] 变化，在配置切换后重建 API 客户端。

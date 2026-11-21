@@ -34,8 +34,8 @@ data class ServerProfile(
 /**
  * 云端服务基础地址配置。
  *
- * [baseUrl] 是后续 API 调用唯一需要依赖的入口，
- * 例如 Retrofit 直接使用 `baseUrl` 作为 baseUrl 即可。
+ * [BASE_URL] 是后续 API 调用唯一需要依赖的入口，
+ * 例如 Retrofit 直接使用 `BASE_URL` 作为 base URL 即可。
  */
 data class ServerConfig(
     val mode: ServerMode = ServerMode.DOMAIN,
@@ -46,7 +46,7 @@ data class ServerConfig(
 ) {
 
     /** 由当前模式拼接出的基础地址，如 `https://acanx.com`、`http://192.168.1.10:8080`。 */
-    val baseUrl: String
+    val BASE_URL: String
         get() = when (mode) {
             ServerMode.DOMAIN -> "${scheme()}://${domain.trim().trimEnd('/')}"
             ServerMode.IP_PORT -> "${scheme()}://${ip.trim()}:$port"
