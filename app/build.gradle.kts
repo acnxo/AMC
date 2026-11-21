@@ -71,11 +71,13 @@ val buildTime = providers.gradleProperty("buildTime").orNull?.takeIf { it.isNotB
 
 android {
     namespace = "io.github.acnxo.amc"
-    compileSdk = 35
+    // composeBom 2026.09.00（Compose 1.12.x）要求依赖方至少以 API 37 编译
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "io.github.acnxo.amc"
         minSdk = 24
+        // 仅提升 compileSdk；targetSdk 涉及运行时行为变更，本次不动
         targetSdk = 35
         versionCode = appVersionCode
         versionName = appVersionName
