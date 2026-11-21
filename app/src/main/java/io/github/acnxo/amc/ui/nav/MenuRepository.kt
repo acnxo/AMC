@@ -130,7 +130,7 @@ object MenuRepository {
                         ),
                         MenuNode(
                             id = "settings.service.finv",
-                            title = "Finv服务节点",
+                            title = "泛微服务节点",
                             icon = Icons.Filled.Storage,
                             destination = MenuDestination.ServerConfig(ServerKind.FINV),
                         ),
