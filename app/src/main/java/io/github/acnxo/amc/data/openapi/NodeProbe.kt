@@ -82,7 +82,11 @@ object NodeProbe {
                 val code = json?.optInt("code", NO_CODE) ?: NO_CODE
                 if (code != NO_CODE && code != OpenApiError.CODE_OK) {
                     return failLive(
-                        OpenApiError.describe(code, json.optString("message"), response.code),
+                        OpenApiError.describe(
+                            code,
+                            json?.optString("message").orEmpty(),
+                            response.code,
+                        ),
                     )
                 }
                 ProbeResult(TITLE_LIVE, PATH_LIVE, true, "HTTP ${response.code} · $cost ms")
@@ -120,7 +124,11 @@ object NodeProbe {
                 val code = json.optInt("code", -1)
                 if (code != OpenApiError.CODE_OK) {
                     return failHandshake(
-                        OpenApiError.describe(code, json.optString("message"), response.code),
+                        OpenApiError.describe(
+                            code,
+                            json?.optString("message").orEmpty(),
+                            response.code,
+                        ),
                     )
                 }
                 val data = json.optJSONObject("data")
