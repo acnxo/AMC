@@ -671,11 +671,7 @@ private fun TodoRow(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                Metric(
-                                    label = "优先级",
-                                    value = "${item.taskPriority}",
-                                    valueColor = MaterialTheme.colorScheme.primary,
-                                )
+                                Metric(label = "优先级", value = "${item.taskPriority}")
                                 Metric(
                                     label = "重要性",
                                     value = "${item.levelImportance ?: "未设置"}",
@@ -727,21 +723,21 @@ private fun TodoRow(
     }
 }
 
-/** 指标「名称 + 值」：名称弱化，值加亮加粗，便于一眼扫到数值。 */
+/** 指标「名称 + 值」：名称用主色加粗打头，值用正文色常规字重，两者颜色与字重都拉开。 */
 @Composable
 private fun Metric(
     label: String,
     value: String,
     valueColor: Color = MaterialTheme.colorScheme.onSurface,
 ) {
-    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val labelColor = MaterialTheme.colorScheme.primary
     Text(
         text = buildAnnotatedString {
-            withStyle(SpanStyle(color = labelColor, fontWeight = FontWeight.Normal)) {
+            withStyle(SpanStyle(color = labelColor, fontWeight = FontWeight.Bold)) {
                 append(label)
                 append(" ")
             }
-            withStyle(SpanStyle(color = valueColor, fontWeight = FontWeight.SemiBold)) {
+            withStyle(SpanStyle(color = valueColor, fontWeight = FontWeight.Normal)) {
                 append(value)
             }
         },
