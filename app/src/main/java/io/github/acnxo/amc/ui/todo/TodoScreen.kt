@@ -634,6 +634,23 @@ private fun TodoRow(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
 
+                            // 编号与优先级：编号用于报障/对照后台，优先级取服务端该接口返回的值
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                            ) {
+                                Text(
+                                    text = "编号 ${item.taskNo}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = "优先级 ${item.taskPriority}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+
                             // 完成进度
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
