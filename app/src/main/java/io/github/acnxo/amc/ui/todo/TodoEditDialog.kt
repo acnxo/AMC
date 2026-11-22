@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,7 +19,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +46,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.delay
+import io.github.acnxo.amc.data.todo.TodoContentType
 import io.github.acnxo.amc.data.todo.TodoItem
 import io.github.acnxo.amc.data.todo.TodoTime
 import java.text.SimpleDateFormat
@@ -53,7 +58,8 @@ import java.util.Locale
  * 编辑对话框的产出，直接对应 `Create` / `Modify` 的入参。
  *
  * - [clearDeadline] 为 true 时服务端通过 `flag_clear_deadline` 把截止时间置空；
- * - [progress] 仅在编辑已有事项时传值，创建接口会忽略 `percent_completion`。
+ * - [progress] 仅在编辑已有事项时传值，创建接口会忽略 `percent_completion`；
+ * - [contentType] 只在创建时生效，服务端 Modify 不接受该字段。
  */
 data class TodoEditResult(
     val title: String,
@@ -64,6 +70,7 @@ data class TodoEditResult(
     val urgency: Int,
     val minuteEstimate: Int?,
     val progress: Int?,
+    val contentType: String?,
 )
 
 /**
@@ -99,6 +106,9 @@ fun TodoEditDialog(
     var progress by rememberSaveable {
         mutableStateOf(initial?.percentCompletion ?: 0)
     }
+    var contentType by rememberSaveable {
+        mutableStateOf(initial?.contentType ?: DEFAULT_CONTENT_TYPE)
+    }
     // 初始是否已有截止时间：用于判断「清空」是否真的需要通知服务端
     val hadDeadline = remember(initial?.taskNo) { initial?.gmtDeadline != null }
 
@@ -114,6 +124,9 @@ fun TodoEditDialog(
         )
         if (editing) {
             add("完成进度改为 100% 会自动标记为已完成，改回 0% 则回到待开始并清空完成时间。")
+        }
+        if (editing) {
+            add("内容类型仅支持在创建时指定，服务端 Modify 暂不支持修改。")
         }
         add("截止时间同时用于本机提醒，清空时会同步通知服务端置空该字段。")
     }
@@ -156,6 +169,12 @@ fun TodoEditDialog(
                         label = { Text(text = "事项内容") },
                         minLines = 3,
                         maxLines = 6,
+                    )
+                    ContentTypeField(
+                        selected = contentType,
+                        // 服务端 Modify 没有 content_type 入参，已创建的事项只能只读展示
+                        enabled = !editing,
+                        onSelect = { contentType = it },
                     )
                     LevelStepper(
                         label = "重要性",
@@ -240,6 +259,7 @@ fun TodoEditDialog(
                                     urgency = urgency,
                                     minuteEstimate = minuteEstimate.toIntOrNull()?.coerceAtLeast(0),
                                     progress = if (editing) progress else null,
+                                    contentType = contentType,
                                 ),
                             )
                         },
@@ -305,6 +325,52 @@ private fun pickDateTime(context: Context, initial: Long?, onPicked: (Long) -> U
 
 private fun formatLocal(millis: Long): String =
     SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(millis))
+
+/** 内容类型下拉框：创建时可选，编辑已有事项时只读（服务端 Modify 不支持该字段）。 */
+@Composable
+private fun ContentTypeField(
+    selected: String,
+    enabled: Boolean,
+    onSelect: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = TodoContentType.labelOf(selected),
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            singleLine = true,
+            label = { Text(text = "内容类型") },
+            trailingIcon = {
+                IconButton(
+                    onClick = { if (enabled) expanded = !expanded },
+                    enabled = enabled,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ArrowDropDown,
+                        contentDescription = "选择内容类型",
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            TodoContentType.entries.forEach { type ->
+                DropdownMenuItem(
+                    text = { Text(text = "${type.label}（${type.code}）") },
+                    onClick = {
+                        onSelect(type.code)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
 
 /** 0-100 的加减波轮：左侧标题、右侧「- 数值 +」，左右按钮点按可单步，长按会连续调整。 */
 @Composable
@@ -384,6 +450,9 @@ private val VALUE_WIDTH = 48.dp
 /** 长按连发参数：按住 400ms 后开始，每 60ms 一步。 */
 private const val REPEAT_DELAY_MS = 400L
 private const val REPEAT_INTERVAL_MS = 60L
+
+/** 创建时默认的内容类型：`2` = HTML，与服务端缺省一致。 */
+private const val DEFAULT_CONTENT_TYPE = "2"
 
 /** 服务端未指定时的缺省指标值，与 Create 的缺省保持一致。 */
 private const val DEFAULT_LEVEL = 50

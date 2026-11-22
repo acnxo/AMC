@@ -175,6 +175,7 @@ fun TodoScreen(
                         minuteEstimate = result.minuteEstimate,
                         levelImportance = result.importance,
                         levelUrgency = result.urgency,
+                        contentType = result.contentType,
                     )
                 } else {
                     client.modify(

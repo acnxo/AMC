@@ -86,6 +86,7 @@ class TodoApi(
         minuteEstimate: Int? = null,
         levelImportance: Int? = null,
         levelUrgency: Int? = null,
+        contentType: String? = null,
     ): TodoItem = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("title", title)
@@ -94,6 +95,8 @@ class TodoApi(
             minuteEstimate?.let { put("minute_estimate", it) }
             levelImportance?.let { put("level_importance", it) }
             levelUrgency?.let { put("level_urgency", it) }
+            // 内容类型仅 Create 支持，取值 `1` txt、`2` html、`3` markdown 等
+            contentType?.let { put("content_type", it) }
         }
         val data = execute(jsonRequest("POST", "Create", body))
         TodoItem.fromJson(data)
