@@ -3,26 +3,37 @@ package io.github.acnxo.amc.ui.todo
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import io.github.acnxo.amc.data.todo.TodoItem
 import io.github.acnxo.amc.data.todo.TodoTime
 import java.text.SimpleDateFormat
@@ -56,12 +67,8 @@ fun TodoEditDialog(
     var deadlineMillis by rememberSaveable {
         mutableStateOf(TodoTime.parseUtc(initial?.gmtDeadline)?.time)
     }
-    var importanceText by rememberSaveable {
-        mutableStateOf(initial?.levelImportance?.toString().orEmpty())
-    }
-    var urgencyText by rememberSaveable {
-        mutableStateOf(initial?.levelUrgency?.toString().orEmpty())
-    }
+    var importance by rememberSaveable { mutableStateOf(initial?.levelImportance ?: 50) }
+    var urgency by rememberSaveable { mutableStateOf(initial?.levelUrgency ?: 50) }
 
     AlertDialog(
         onDismissRequest = { if (!saving) onDismiss() },
@@ -69,7 +76,10 @@ fun TodoEditDialog(
             Text(text = if (initial == null) "新建待办" else "编辑待办")
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
@@ -86,26 +96,16 @@ fun TodoEditDialog(
                     minLines = 3,
                     maxLines = 6,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = importanceText,
-                        onValueChange = { value -> importanceText = value.filter(Char::isDigit).take(3) },
-                        modifier = Modifier.weight(1f),
-                        label = { Text(text = "重要性") },
-                        placeholder = { Text(text = "0-100") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    )
-                    OutlinedTextField(
-                        value = urgencyText,
-                        onValueChange = { value -> urgencyText = value.filter(Char::isDigit).take(3) },
-                        modifier = Modifier.weight(1f),
-                        label = { Text(text = "紧急程度") },
-                        placeholder = { Text(text = "0-100") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    )
-                }
+                LevelStepper(
+                    label = "重要性",
+                    value = importance,
+                    onValueChange = { importance = it },
+                )
+                LevelStepper(
+                    label = "紧急程度",
+                    value = urgency,
+                    onValueChange = { urgency = it },
+                )
                 if (initial != null) {
                     Text(
                         text = "服务端 Modify 暂不支持修改重要性与紧急程度，已有事项的改动不会生效。",
@@ -163,8 +163,8 @@ fun TodoEditDialog(
                         title.trim(),
                         content.trim(),
                         deadlineMillis?.let { Date(it) },
-                        importanceText.toIntOrNull()?.coerceIn(0, 100),
-                        urgencyText.toIntOrNull()?.coerceIn(0, 100),
+                        importance,
+                        urgency,
                     )
                 },
                 enabled = !saving && title.isNotBlank(),
@@ -211,3 +211,75 @@ private fun pickDateTime(context: Context, initial: Long?, onPicked: (Long) -> U
 
 private fun formatLocal(millis: Long): String =
     SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(millis))
+
+/** 0-100 的加减波轮：左右按钮点按可单步调整，长按会连续加减。 */
+@Composable
+private fun LevelStepper(
+    label: String,
+    value: Int,
+    onValueChange: (Int) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StepButton(
+                icon = Icons.Filled.Remove,
+                contentDescription = "减少$label",
+                enabled = value > LEVEL_MIN,
+                onStep = { onValueChange((value - 1).coerceIn(LEVEL_MIN, LEVEL_MAX)) },
+            )
+            Text(
+                text = value.toString(),
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f),
+            )
+            StepButton(
+                icon = Icons.Filled.Add,
+                contentDescription = "增加$label",
+                enabled = value < LEVEL_MAX,
+                onStep = { onValueChange((value + 1).coerceIn(LEVEL_MIN, LEVEL_MAX)) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun StepButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    enabled: Boolean,
+    onStep: () -> Unit,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+
+    // 按下即步进一次；保持按下 400ms 后开始连发，每 60ms 一次
+    LaunchedEffect(pressed, enabled) {
+        if (!pressed || !enabled) return@LaunchedEffect
+        onStep()
+        delay(400)
+        while (true) {
+            onStep()
+            delay(60)
+        }
+    }
+
+    IconButton(
+        onClick = {},
+        enabled = enabled,
+        interactionSource = interaction,
+    ) {
+        Icon(imageVector = icon, contentDescription = contentDescription)
+    }
+}
+
+private const val LEVEL_MIN = 0
+private const val LEVEL_MAX = 100
