@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -125,9 +124,10 @@ fun TodoEditDialog(
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             modifier = Modifier.fillMaxWidth(),
         ) {
+            // 高度自适应：内容少时紧贴内容，内容超出屏幕时才整块滚动，不再固定上限
             Column(
                 modifier = Modifier
-                    .heightIn(max = DIALOG_MAX_HEIGHT)
+                    .verticalScroll(rememberScrollState())
                     .padding(20.dp),
             ) {
                 Text(
@@ -136,11 +136,9 @@ fun TodoEditDialog(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // 主体内容：内容过多时只滚动这一块，标题与按钮保持可见
+                // 主体内容：跟随内容自然撑高，不再限制可视高度
                 Column(
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .verticalScroll(rememberScrollState()),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     OutlinedTextField(
@@ -382,9 +380,6 @@ private const val LEVEL_MAX = 100
 
 /** 波轮数值区的固定宽度，保证三行的「- 数值 +」竖直对齐。 */
 private val VALUE_WIDTH = 48.dp
-
-/** 对话框主体的最大高度，超出时只滚动内容区。 */
-private val DIALOG_MAX_HEIGHT = 520.dp
 
 /** 长按连发参数：按住 400ms 后开始，每 60ms 一步。 */
 private const val REPEAT_DELAY_MS = 400L
