@@ -9,6 +9,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -89,8 +91,9 @@ import kotlin.math.roundToInt
  *
  * - 数据来自「内容服务节点」配置的 BASE_URL 下的 CMS ToDo OpenAPI；
  * - 左侧勾选框切换完成状态；
- * - 点击事项弹出编辑对话框，可改标题、内容与提醒时间；
- * - 长按标题后左滑露出红色删除按钮（服务端暂无删除接口，点击会提示）。
+ * - 点击标题展开/折叠详细描述（手风琴，同一时刻只展开一条）；
+ * - 长按标题弹出编辑对话框，可改标题、内容与提醒时间；
+ * - 左滑露出红色删除按钮（服务端暂无删除接口，点击会提示）。
  */
 @Composable
 fun TodoScreen(
@@ -116,7 +119,8 @@ fun TodoScreen(
     var refreshKey by remember { mutableIntStateOf(0) }
     var editorVisible by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<TodoItem?>(null) }
-    var swipeEnabledId by remember { mutableStateOf<Long?>(null) }
+    // 手风琴：同一时刻最多展开一条的详细描述
+    var expandedId by remember { mutableStateOf<Long?>(null) }
     val scope = rememberCoroutineScope()
 
     val notificationPermission = rememberLauncherForActivityResult(
@@ -232,7 +236,6 @@ fun TodoScreen(
             "后端尚未支持软删除，删除功能待服务端提供接口（issue #17）",
             Toast.LENGTH_LONG,
         ).show()
-        swipeEnabledId = null
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -341,15 +344,17 @@ fun TodoScreen(
                                 completing = item.taskNo in completingIds,
                                 uncompleting = item.taskNo in uncompletingIds,
                                 hidden = item.taskNo in hiddenIds,
-                                swipeEnabled = swipeEnabledId == item.taskNo,
+                                expanded = expandedId == item.taskNo,
                                 onToggle = {
                                     if (item.isDone) uncomplete(item) else complete(item)
                                 },
-                                onOpen = {
+                                onToggleExpand = {
+                                    expandedId = if (expandedId == item.taskNo) null else item.taskNo
+                                },
+                                onEdit = {
                                     editing = item
                                     editorVisible = true
                                 },
-                                onLongPress = { swipeEnabledId = item.taskNo },
                                 onDelete = { delete(item) },
                             )
                         }
@@ -402,10 +407,10 @@ private fun TodoRow(
     completing: Boolean,
     uncompleting: Boolean,
     hidden: Boolean,
-    swipeEnabled: Boolean,
+    expanded: Boolean,
     onToggle: () -> Unit,
-    onOpen: () -> Unit,
-    onLongPress: () -> Unit,
+    onToggleExpand: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val density = LocalDensity.current
@@ -433,10 +438,6 @@ private fun TodoRow(
     // 多行标题需要按行绘制删除线，这里保存实际排版结果
     var titleLayout by remember(item.taskNo) { mutableStateOf<TextLayoutResult?>(null) }
 
-    LaunchedEffect(swipeEnabled) {
-        if (!swipeEnabled) offsetX = 0f
-    }
-
     // 阶段 3：整条卡片折叠 + 淡出
     AnimatedVisibility(
         visible = !hidden,
@@ -448,31 +449,23 @@ private fun TodoRow(
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 4.dp),
         ) {
-            // 背景层：长按后左滑露出的红色删除区
+            // 背景层：左滑后露出的红色删除区（本身被卡片遮挡）
             Box(
                 modifier = Modifier
                     .matchParentSize()
                     .clip(CARD_SHAPE)
-                    .background(
-                        if (swipeEnabled) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            Color.Transparent
-                        },
-                    ),
+                    .background(MaterialTheme.colorScheme.error),
                 contentAlignment = Alignment.CenterEnd,
             ) {
-                if (swipeEnabled) {
-                    IconButton(
-                        onClick = onDelete,
-                        enabled = offsetX <= -revealWidth * 0.9f,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Delete,
-                            contentDescription = "删除",
-                            tint = MaterialTheme.colorScheme.onError,
-                        )
-                    }
+                IconButton(
+                    onClick = onDelete,
+                    enabled = offsetX <= -revealWidth * 0.9f,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "删除",
+                        tint = MaterialTheme.colorScheme.onError,
+                    )
                 }
             }
 
@@ -485,8 +478,7 @@ private fun TodoRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .offset { IntOffset(offsetX.roundToInt(), 0) }
-                    .pointerInput(swipeEnabled) {
-                        if (!swipeEnabled) return@pointerInput
+                    .pointerInput(Unit) {
                         detectHorizontalDragGestures(
                             onDragEnd = {
                                 offsetX = if (offsetX < -revealWidth / 2) -revealWidth else 0f
@@ -497,72 +489,94 @@ private fun TodoRow(
                         }
                     },
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    // 阶段 1：勾选框选中——黄色强调色 + 勾号绘制动画
-                    Checkbox(
-                        checked = done,
-                        // 状态由服务端与动画驱动，这里只负责把点击交回上层
-                        onCheckedChange = { onToggle() },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = DONE_ACCENT,
-                            checkmarkColor = DONE_CHECKMARK,
-                            uncheckedColor = MaterialTheme.colorScheme.outline,
-                        ),
-                    )
-                    Column(
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 4.dp, end = 8.dp)
-                            .combinedClickable(
-                                onClick = onOpen,
-                                onLongClick = onLongPress,
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        // 阶段 1：勾选框选中——黄色强调色 + 勾号绘制动画
+                        Checkbox(
+                            checked = done,
+                            // 状态由服务端与动画驱动，这里只负责把点击交回上层
+                            onCheckedChange = { onToggle() },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = DONE_ACCENT,
+                                checkmarkColor = DONE_CHECKMARK,
+                                uncheckedColor = MaterialTheme.colorScheme.outline,
                             ),
+                        )
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 4.dp, end = 8.dp)
+                                .combinedClickable(
+                                    onClick = onToggleExpand,
+                                    onLongClick = onEdit,
+                                ),
+                        ) {
+                            Text(
+                                text = item.title.ifBlank { "（无标题）" },
+                                // 比 bodyLarge（16sp）大两级，突出标题
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontSize = 20.sp,
+                                    lineHeight = 26.sp,
+                                ),
+                                fontWeight = FontWeight.SemiBold,
+                                color = titleColor,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                onTextLayout = { titleLayout = it },
+                                modifier = Modifier.drawWithContent {
+                                    drawContent()
+                                    if (strikeProgress <= 0f) return@drawWithContent
+                                    val layout = titleLayout ?: return@drawWithContent
+                                    // 逐行绘制：每行单独取水平范围与垂直中线，多行时不会只划在首行
+                                    for (line in 0 until layout.lineCount) {
+                                        val top = layout.getLineTop(line)
+                                        val bottom = layout.getLineBottom(line)
+                                        val left = layout.getLineLeft(line)
+                                        val right = layout.getLineRight(line)
+                                        val y = (top + bottom) / 2f
+                                        drawLine(
+                                            color = strikeColor,
+                                            start = Offset(left, y),
+                                            end = Offset(left + (right - left) * strikeProgress, y),
+                                            strokeWidth = 1.5.dp.toPx(),
+                                            cap = StrokeCap.Round,
+                                        )
+                                    }
+                                },
+                            )
+                            item.gmtDeadline?.let { deadline ->
+                                Text(
+                                    text = "提醒：${TodoTime.formatLocal(deadline)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        }
+                    }
+
+                    // 手风琴详情区：无描述时保留一行空文本，展开/折叠带动画
+                    AnimatedVisibility(
+                        visible = expanded,
+                        enter = expandVertically(
+                            animationSpec = tween<IntSize>(EXPAND_ANIM_MS),
+                        ) + fadeIn(animationSpec = tween<Float>(EXPAND_ANIM_MS)),
+                        exit = shrinkVertically(
+                            animationSpec = tween<IntSize>(EXPAND_ANIM_MS),
+                        ) + fadeOut(animationSpec = tween<Float>(EXPAND_ANIM_MS)),
                     ) {
                         Text(
-                            text = item.title.ifBlank { "（无标题）" },
-                            // 比 bodyLarge（16sp）大两级，突出标题
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontSize = 20.sp,
-                                lineHeight = 26.sp,
-                            ),
-                            fontWeight = FontWeight.SemiBold,
-                            color = titleColor,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            onTextLayout = { titleLayout = it },
-                            modifier = Modifier.drawWithContent {
-                                drawContent()
-                                if (strikeProgress <= 0f) return@drawWithContent
-                                val layout = titleLayout ?: return@drawWithContent
-                                // 逐行绘制：每行单独取水平范围与垂直中线，多行时不会只划在首行
-                                for (line in 0 until layout.lineCount) {
-                                    val top = layout.getLineTop(line)
-                                    val bottom = layout.getLineBottom(line)
-                                    val left = layout.getLineLeft(line)
-                                    val right = layout.getLineRight(line)
-                                    val y = (top + bottom) / 2f
-                                    drawLine(
-                                        color = strikeColor,
-                                        start = Offset(left, y),
-                                        end = Offset(left + (right - left) * strikeProgress, y),
-                                        strokeWidth = 1.5.dp.toPx(),
-                                        cap = StrokeCap.Round,
-                                    )
-                                }
-                            },
+                            text = item.content?.takeIf { it.isNotBlank() } ?: " ",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 56.dp, end = 16.dp, bottom = 12.dp),
                         )
-                        item.gmtDeadline?.let { deadline ->
-                            Text(
-                                text = "提醒：${TodoTime.formatLocal(deadline)}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
                     }
                 }
             }
@@ -582,3 +596,4 @@ private const val STRIKE_DELAY_MS = 120
 private const val STRIKE_ANIM_MS = 360
 private const val COMPLETE_ANIM_MS = STRIKE_DELAY_MS + STRIKE_ANIM_MS + 120L
 private const val REMOVE_ANIM_MS = 300
+private const val EXPAND_ANIM_MS = 220
