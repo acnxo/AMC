@@ -656,30 +656,6 @@ private fun TodoRow(
                                 )
                             }
 
-                            // 完成进度：标签 + 进度条 + 百分比保持在同一行
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Text(
-                                    text = "完成进度",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                LinearProgressIndicator(
-                                    progress = {
-                                        item.percentCompletion.coerceIn(0, 100) / 100f
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Text(
-                                    text = "${item.percentCompletion}%",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                            }
-
                             // 耗时：预计与实际并排
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -720,7 +696,7 @@ private fun TodoRow(
                                 )
                             }
 
-                            // 时间：开始与最近更新同一行，截止时间单独一行（标题在前，省去年份）
+                            // 时间：开始与最近更新同一行（标题在前，省去年份）
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -728,7 +704,30 @@ private fun TodoRow(
                                 TimeInfoText(value = item.gmtCreate, prefix = "开始")
                                 TimeInfoText(value = item.gmtUpdate, prefix = "更新")
                             }
-                            TimeInfoText(value = item.gmtDeadline, prefix = "截止")
+
+                            // 完成进度：标签 + 进度条 + 百分比保持在同一行
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = "完成进度",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                LinearProgressIndicator(
+                                    progress = {
+                                        item.percentCompletion.coerceIn(0, 100) / 100f
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(
+                                    text = "${item.percentCompletion}%",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
                         }
                     }
                 }
