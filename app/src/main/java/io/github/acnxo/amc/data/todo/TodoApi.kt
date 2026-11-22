@@ -48,7 +48,7 @@ class TodoApi(
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    /** 分页查询；[filter] 100 表示全部，5 表示已完成。 */
+    /** 分页查询；[filter] 0 待开始、2 进行中、5 已完成、100 全部。 */
     suspend fun page(
         pn: Int = 1,
         ps: Int = 100,
@@ -228,8 +228,10 @@ class TodoApi(
 
     companion object {
         private const val CODE_OK = 1
-        const val FILTER_ALL = 100
+        const val FILTER_PENDING = 0
+        const val FILTER_DOING = 2
         const val FILTER_DONE = 5
+        const val FILTER_ALL = 100
 
         private val JSON_MEDIA_TYPE = "application/json;charset=UTF-8".toMediaType()
     }

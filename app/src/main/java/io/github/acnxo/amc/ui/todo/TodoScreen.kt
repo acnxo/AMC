@@ -47,6 +47,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.runtime.Composable
@@ -58,6 +60,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,7 +93,7 @@ import kotlin.math.roundToInt
 /**
  * 待办事项页（复刻小米便签「待办」的交互）。
  *
- * - 数据来自「内容服务节点」配置的 BASE_URL 下的 CMS ToDo OpenAPI；
+ * - 待办页分「待开始」「进行中」两个标签页，分别用 `filter=0` 与 `filter=2` 拉数据；
  * - 左侧勾选框切换完成状态；
  * - 点击标题展开/折叠详细描述（手风琴，同一时刻只展开一条）；
  * - 长按标题弹出编辑对话框，可改标题、内容、重要性、紧急程度、预计耗时、
@@ -126,19 +129,22 @@ fun TodoScreen(
     var editing by remember { mutableStateOf<TodoItem?>(null) }
     // 手风琴：同一时刻最多展开一条的详细描述
     var expandedId by remember { mutableStateOf<Long?>(null) }
+    // 待办页按状态分两个标签页，各自走对应的服务端 filter
+    var tabIndex by rememberSaveable { mutableIntStateOf(0) }
+    val tabs = TodoTab.entries
+    val currentTab = tabs[tabIndex.coerceIn(tabs.indices)]
+    val currentFilter = if (showDone) TodoApi.FILTER_DONE else currentTab.filter
     val scope = rememberCoroutineScope()
 
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { }
 
-    LaunchedEffect(api, refreshKey, showDone) {
+    LaunchedEffect(api, refreshKey, showDone, currentFilter) {
         val client = api ?: return@LaunchedEffect
         loading = true
         error = null
-        runCatching {
-            client.page(filter = if (showDone) TodoApi.FILTER_DONE else TodoApi.FILTER_ALL)
-        }
+        runCatching { client.page(filter = currentFilter) }
             .onSuccess { todoItems = it.items }
             .onFailure { error = it.message ?: "加载失败" }
         loading = false
@@ -194,6 +200,8 @@ fun TodoScreen(
                 saved
             }.onSuccess {
                 editorVisible = false
+                // 新建的事项固定为待开始；若当前在「进行中」标签页，切回待开始
+                if (current == null) tabIndex = 0
                 refreshKey++
             }.onFailure {
                 error = it.message ?: "保存失败"
@@ -294,15 +302,34 @@ fun TodoScreen(
             ) {
                 Text(
                     text = if (showDone) {
-                        "已完成 ${todoItems.count { it.isDone }} 项"
+                        "已完成 ${todoItems.size} 项"
                     } else {
-                        "未完成 ${todoItems.count { !it.isDone }} 项"
+                        "${currentTab.label} ${todoItems.size} 项"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 IconButton(onClick = { refreshKey++ }, enabled = !loading) {
                     Icon(Icons.Filled.Refresh, contentDescription = "刷新")
+                }
+            }
+
+            if (!showDone) {
+                TabRow(selectedTabIndex = tabIndex) {
+                    tabs.forEachIndexed { index, item ->
+                        Tab(
+                            selected = index == tabIndex,
+                            onClick = {
+                                if (index != tabIndex) {
+                                    tabIndex = index
+                                    expandedId = null
+                                    todoItems = emptyList()
+                                    error = null
+                                }
+                            },
+                            text = { Text(text = item.label) },
+                        )
+                    }
                 }
             }
 
@@ -322,8 +349,7 @@ fun TodoScreen(
                     }
                 }
 
-                (!showDone && todoItems.none { !it.isDone }) ||
-                    (showDone && todoItems.none { it.isDone }) -> {
+                todoItems.isEmpty() -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -332,7 +358,11 @@ fun TodoScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = if (showDone) "还没有已完成的事项" else "还没有待办事项",
+                            text = if (showDone) {
+                                "还没有已完成的事项"
+                            } else {
+                                "没有${currentTab.label}的事项"
+                            },
                             style = MaterialTheme.typography.titleMedium,
                         )
                         if (!showDone) {
@@ -347,14 +377,8 @@ fun TodoScreen(
                 }
 
                 else -> {
-                    // 待办页只展示未完成项；已完成页只展示已完成项
-                    val visible = if (showDone) {
-                        todoItems.filter { it.isDone }
-                    } else {
-                        todoItems.filterNot { it.isDone }
-                    }
-                    // 未完成在前；同组内按优先级指标（task_priority）降序，再看截止时间
-                    val sorted = visible.sortedWith(
+                    // 状态已由服务端 filter 决定，这里不再二次过滤，避免漏掉进行中事项
+                    val sorted = todoItems.sortedWith(
                         compareBy<TodoItem> { it.isDone }
                             .thenByDescending { it.taskPriority }
                             .thenBy { it.gmtDeadline ?: "9999" },
@@ -672,6 +696,12 @@ private fun TodoRow(
             }
         }
     }
+}
+
+/** 待办页的标签页，分别对应服务端 filter 的两种未完成状态。 */
+private enum class TodoTab(val label: String, val filter: Int) {
+    PENDING("待开始", TodoApi.FILTER_PENDING),
+    DOING("进行中", TodoApi.FILTER_DOING),
 }
 
 private val CARD_SHAPE = RoundedCornerShape(14.dp)

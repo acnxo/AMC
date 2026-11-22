@@ -27,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -314,20 +315,21 @@ private fun StepButton(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
+    // 连发循环会活过多次重组，必须用最新的 lambda，否则会一直拿旧 value 反复计算
+    val currentOnStep by rememberUpdatedState(onStep)
 
-    // 按下即步进一次；保持按下 400ms 后开始连发，每 60ms 一次
+    // 单击单步走 IconButton 的 onClick；这里只负责长按连发，400ms 后开始，每 60ms 一次
     LaunchedEffect(pressed, enabled) {
         if (!pressed || !enabled) return@LaunchedEffect
-        onStep()
-        delay(400)
+        delay(REPEAT_DELAY_MS)
         while (true) {
-            onStep()
-            delay(60)
+            currentOnStep()
+            delay(REPEAT_INTERVAL_MS)
         }
     }
 
     IconButton(
-        onClick = {},
+        onClick = { currentOnStep() },
         enabled = enabled,
         interactionSource = interaction,
     ) {
@@ -337,6 +339,10 @@ private fun StepButton(
 
 private const val LEVEL_MIN = 0
 private const val LEVEL_MAX = 100
+
+/** 长按连发参数：按住 400ms 后开始，每 60ms 一步。 */
+private const val REPEAT_DELAY_MS = 400L
+private const val REPEAT_INTERVAL_MS = 60L
 
 /** 服务端未指定时的缺省指标值，与 Create 的缺省保持一致。 */
 private const val DEFAULT_LEVEL = 50
