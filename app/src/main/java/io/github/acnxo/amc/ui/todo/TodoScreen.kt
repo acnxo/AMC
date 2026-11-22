@@ -690,10 +690,40 @@ private fun TodoRow(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
+
+                            // 时间信息：开始时间（即 gmt_create）、最近更新、截止时间
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                TimeInfoRow(label = "开始时间", value = item.gmtCreate)
+                                TimeInfoRow(label = "最近更新", value = item.gmtUpdate)
+                                TimeInfoRow(label = "截止时间", value = item.gmtDeadline)
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+/** 一条「标签 + 本地时间」信息；值缺失或格式不符时不展示。 */
+@Composable
+private fun TimeInfoRow(label: String, value: String?) {
+    val text = TodoTime.formatLocal(value)
+    if (text.isNotBlank()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
