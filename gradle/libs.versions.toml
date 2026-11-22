@@ -2,7 +2,7 @@
 agp = "9.5.1"
 # AGP 9 起内置 Kotlin 支持，编译器版本由 AGP 捆绑的 KGP 决定（9.5.1 为 2.2.10）。
 # 此处版本仅用于 Compose 编译器插件，必须与内置 KGP 保持一致。
-kotlin = "2.2.10"
+kotlin = "2.4.21"
 coreKtx = "1.19.1"
 lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.9.3"
