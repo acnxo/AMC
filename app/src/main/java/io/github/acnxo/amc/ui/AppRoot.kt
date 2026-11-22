@@ -50,6 +50,8 @@ import io.github.acnxo.amc.ui.nav.findLeaf
 import io.github.acnxo.amc.ui.nav.findPath
 import io.github.acnxo.amc.ui.nav.firstLeaf
 import io.github.acnxo.amc.ui.settings.ServerNodeScreen
+import io.github.acnxo.amc.ui.todo.TodoScreen
+import io.github.acnxo.amc.ui.update.UpdateScreen
 import io.github.acnxo.amc.ui.version.VersionInfoScreen
 import io.github.acnxo.amc.ui.web.WebContentScreen
 import io.github.acnxo.amc.ui.web.WebViewHandle
@@ -173,7 +175,22 @@ fun AppRoot(
                         modifier = Modifier.fillMaxSize(),
                     )
 
-                    MenuDestination.ServerConfig -> ServerNodeScreen(
+                    MenuDestination.Update -> UpdateScreen(
+                        modifier = Modifier.fillMaxSize(),
+                    )
+
+                    is MenuDestination.Todo -> TodoScreen(
+                        showDone = destination.showDone,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+
+                    MenuDestination.Placeholder -> EmptyPlaceholder(
+                        modifier = Modifier.fillMaxSize(),
+                        message = "「${selectedNode?.title.orEmpty()}」功能正在开发中",
+                    )
+
+                    is MenuDestination.ServerConfig -> ServerNodeScreen(
+                        kind = destination.kind,
                         modifier = Modifier.fillMaxSize(),
                     )
 
@@ -185,7 +202,10 @@ fun AppRoot(
 }
 
 @Composable
-private fun EmptyPlaceholder(modifier: Modifier = Modifier) {
+private fun EmptyPlaceholder(
+    modifier: Modifier = Modifier,
+    message: String = "请从左侧菜单选择一个页面",
+) {
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.Center,
@@ -199,7 +219,7 @@ private fun EmptyPlaceholder(modifier: Modifier = Modifier) {
         )
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-            text = "请从左侧菜单选择一个页面",
+            text = message,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

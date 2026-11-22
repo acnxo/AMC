@@ -1,16 +1,41 @@
 package io.github.acnxo.amc.data
 
-/** 服务器连接模式：域名 / IP + 端口。 */
-enum class ServerMode {
-    DOMAIN,
-    IP_PORT,
+/**
+ * 服务节点类型。
+ *
+ * 两类节点各自维护一份独立的配置档案（profile）列表，互不影响。
+ */
+enum class ServerKind {
+    /** 内容服务节点（CMS） */
+    CMS,
+
+    /** Finv 服务节点 */
+    FINV,
 }
+
+/** 服务器连接模式：域名 / IP + 端口。 */
+enum class ServerMode(val label: String) {
+    DOMAIN("域名"),
+    IP_PORT("IP + 端口"),
+}
+
+/**
+ * 一份服务节点配置档案（profile）。
+ *
+ * [name] 由用户填写，用于在多个配置之间区分；[id] 为内部稳定标识，
+ * 不随配置名或内容修改而变化。
+ */
+data class ServerProfile(
+    val id: String,
+    val name: String,
+    val config: ServerConfig = ServerConfig(),
+)
 
 /**
  * 云端服务基础地址配置。
  *
- * [baseUrl] 是后续 API 调用唯一需要依赖的入口，
- * 例如 Retrofit 直接使用 `baseUrl` 作为 baseUrl 即可。
+ * [BASE_URL] 是后续 API 调用唯一需要依赖的入口，
+ * 例如 Retrofit 直接使用 `BASE_URL` 作为 base URL 即可。
  */
 data class ServerConfig(
     val mode: ServerMode = ServerMode.DOMAIN,
@@ -18,10 +43,18 @@ data class ServerConfig(
     val useHttps: Boolean = true,
     val ip: String = "",
     val port: Int = DEFAULT_PORT,
+    /** OpenAPI 鉴权用的 Access Key（内容服务节点）；留空表示不签名。 */
+    val accessKey: String = "",
+    /** OpenAPI 鉴权用的 Secret Key；仅保存在本机配置中，不写入日志。 */
+    val secretKey: String = "",
 ) {
 
-    /** 由当前模式拼接出的基础地址，如 `https://acanx.com`、`http://192.168.1.10:8080`。 */
-    val baseUrl: String
+    /** 是否已配置可用的 AK/SK，决定请求是否附带签名头。 */
+    val hasCredentials: Boolean
+        get() = accessKey.isNotBlank() && secretKey.isNotBlank()
+
+    /** 由当前模式拼接出的基础地址，如 `https://example.com`、`http://192.168.1.10:8080`。 */
+    val BASE_URL: String
         get() = when (mode) {
             ServerMode.DOMAIN -> "${scheme()}://${domain.trim().trimEnd('/')}"
             ServerMode.IP_PORT -> "${scheme()}://${ip.trim()}:$port"
@@ -36,7 +69,7 @@ data class ServerConfig(
             when {
                 host.isEmpty() -> "请输入域名"
                 host.length > 253 -> "域名长度不能超过 253 个字符"
-                !DOMAIN_REGEX.matches(host) -> "域名格式不正确，例如 acanx.com"
+                !DOMAIN_REGEX.matches(host) -> "域名格式不正确，例如 example.com"
                 else -> null
             }
         }
@@ -53,7 +86,8 @@ data class ServerConfig(
     }
 
     companion object {
-        const val DEFAULT_DOMAIN = "acanx.com"
+        /** 不提供缺省域名：服务地址由用户自行配置，避免把内网/私有地址写死在代码里。 */
+        const val DEFAULT_DOMAIN = ""
         const val DEFAULT_PORT = 443
 
         private val DOMAIN_REGEX = Regex(

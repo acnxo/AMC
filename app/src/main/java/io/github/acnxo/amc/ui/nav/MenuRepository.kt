@@ -3,17 +3,25 @@ package io.github.acnxo.amc.ui.nav
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.NewReleases
+import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Smartphone
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.SystemUpdate
+import io.github.acnxo.amc.data.ServerKind
 
 /**
  * 菜单数据源。
@@ -73,6 +81,38 @@ object MenuRepository {
             ),
         ),
         MenuNode(
+            id = "content",
+            title = "内容管理",
+            icon = Icons.Filled.Folder,
+            children = listOf(
+                MenuNode(
+                    id = "content.todo",
+                    title = "待办",
+                    icon = Icons.Filled.Checklist,
+                    children = listOf(
+                        MenuNode(
+                            id = "content.todo.pending",
+                            title = "待办事项",
+                            icon = Icons.Filled.PendingActions,
+                            destination = MenuDestination.Todo(showDone = false),
+                        ),
+                        MenuNode(
+                            id = "content.todo.done",
+                            title = "已完成事项",
+                            icon = Icons.Filled.CheckCircle,
+                            destination = MenuDestination.Todo(showDone = true),
+                        ),
+                        MenuNode(
+                            id = "content.todo.stats",
+                            title = "统计分析",
+                            icon = Icons.Filled.BarChart,
+                            destination = MenuDestination.Placeholder,
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        MenuNode(
             id = "settings",
             title = "设置",
             icon = Icons.Filled.Settings,
@@ -83,10 +123,16 @@ object MenuRepository {
                     icon = Icons.Filled.Cloud,
                     children = listOf(
                         MenuNode(
-                            id = "settings.service.server",
-                            title = "服务器节点",
+                            id = "settings.service.cms",
+                            title = "内容服务节点",
                             icon = Icons.Filled.Dns,
-                            destination = MenuDestination.ServerConfig,
+                            destination = MenuDestination.ServerConfig(ServerKind.CMS),
+                        ),
+                        MenuNode(
+                            id = "settings.service.finv",
+                            title = "泛微服务节点",
+                            icon = Icons.Filled.Storage,
+                            destination = MenuDestination.ServerConfig(ServerKind.FINV),
                         ),
                     ),
                 ),
@@ -108,6 +154,12 @@ object MenuRepository {
                     title = "联系我们",
                     icon = Icons.Filled.Email,
                     destination = MenuDestination.Web(HOME_URL),
+                ),
+                MenuNode(
+                    id = "about.update",
+                    title = "版本更新",
+                    icon = Icons.Filled.SystemUpdate,
+                    destination = MenuDestination.Update,
                 ),
                 MenuNode(
                     id = "about.version",

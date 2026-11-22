@@ -104,6 +104,11 @@ android {
     buildTypes {
         debug {
             isMinifyEnabled = false
+            // 统一签名：只要提供了固定证书，debug 产物也用它，
+            // 避免 debug.apk 与 release.apk 互相覆盖安装时报签名不一致
+            if (releaseKeystorePath != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         release {
             // 暂时不开启混淆，保持与 debug 相近的行为
@@ -155,6 +160,8 @@ dependencies {
     implementation(libs.androidx.material.icons.core)
     // 抽屉菜单各层级图标的补充集合（core 仅内置少量常用图标）
     implementation(libs.androidx.material.icons.extended)
+    // 待办模块的 HTTP 客户端（PATCH 方法）
+    implementation(libs.okhttp)
 
     debugImplementation(libs.androidx.ui.tooling)
 }
