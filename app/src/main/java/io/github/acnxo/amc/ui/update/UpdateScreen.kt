@@ -28,7 +28,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +39,7 @@ import io.github.acnxo.amc.data.PackageType
 import io.github.acnxo.amc.data.ReleaseAsset
 import io.github.acnxo.amc.data.ReleaseInfo
 import io.github.acnxo.amc.data.UpdateChannel
+import io.github.acnxo.amc.data.UpdatePreferences
 import io.github.acnxo.amc.data.UpdateRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -61,8 +61,9 @@ fun UpdateScreen(modifier: Modifier = Modifier) {
     val repository = remember { UpdateRepository() }
     val scope = rememberCoroutineScope()
 
-    var channel by rememberSaveable { mutableStateOf(UpdateChannel.STABLE) }
-    var packageType by rememberSaveable { mutableStateOf(PackageType.APK) }
+    // 记住用户上次选择的通道与包类型（本页重新进入时沿用）
+    var channel by remember { mutableStateOf(UpdatePreferences.channel(context)) }
+    var packageType by remember { mutableStateOf(UpdatePreferences.packageType(context)) }
 
     var releases by remember { mutableStateOf<List<ReleaseInfo>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -155,7 +156,10 @@ fun UpdateScreen(modifier: Modifier = Modifier) {
             UpdateChannel.entries.forEach { item ->
                 FilterChip(
                     selected = channel == item,
-                    onClick = { channel = item },
+                    onClick = {
+                        channel = item
+                        UpdatePreferences.setChannel(context, item)
+                    },
                     label = { Text(text = item.label) },
                 )
             }
@@ -175,7 +179,10 @@ fun UpdateScreen(modifier: Modifier = Modifier) {
             PackageType.entries.forEach { item ->
                 FilterChip(
                     selected = packageType == item,
-                    onClick = { packageType = item },
+                    onClick = {
+                        packageType = item
+                        UpdatePreferences.setPackageType(context, item)
+                    },
                     label = { Text(text = item.label) },
                 )
             }
