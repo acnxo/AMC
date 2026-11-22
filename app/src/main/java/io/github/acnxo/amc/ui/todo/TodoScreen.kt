@@ -43,6 +43,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -573,14 +574,58 @@ private fun TodoRow(
                             animationSpec = tween<IntSize>(EXPAND_ANIM_MS),
                         ) + fadeOut(animationSpec = tween<Float>(EXPAND_ANIM_MS)),
                     ) {
-                        Text(
-                            text = item.content?.takeIf { it.isNotBlank() } ?: " ",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(start = 56.dp, end = 16.dp, bottom = 12.dp),
-                        )
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = item.content?.takeIf { it.isNotBlank() } ?: " ",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+
+                            // 完成进度
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    text = "完成进度",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = "${item.percentCompletion}%",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            LinearProgressIndicator(
+                                progress = {
+                                    item.percentCompletion.coerceIn(0, 100) / 100f
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+
+                            // 预计耗时
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    text = "预计耗时",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = item.minuteEstimate?.let { "$it 分钟" } ?: "未设置",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                     }
                 }
             }
