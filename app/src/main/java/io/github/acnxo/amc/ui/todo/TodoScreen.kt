@@ -638,32 +638,29 @@ private fun TodoRow(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
 
-                            // 编号与优先级：编号用于报障/对照后台，优先级取服务端该接口返回的值
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(24.dp),
-                            ) {
-                                Text(
-                                    text = "编号 ${item.taskNo}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Text(
-                                    text = "优先级 ${item.taskPriority}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
+                            // 编号：用于对照后台与报障
+                            Text(
+                                text = "编号 ${item.taskNo}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
 
-                            // 完成进度
+                            // 完成进度：标签 + 进度条 + 百分比保持在同一行
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 Text(
                                     text = "完成进度",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                LinearProgressIndicator(
+                                    progress = {
+                                        item.percentCompletion.coerceIn(0, 100) / 100f
+                                    },
+                                    modifier = Modifier.weight(1f),
                                 )
                                 Text(
                                     text = "${item.percentCompletion}%",
@@ -671,35 +668,35 @@ private fun TodoRow(
                                     color = MaterialTheme.colorScheme.primary,
                                 )
                             }
-                            LinearProgressIndicator(
-                                progress = {
-                                    item.percentCompletion.coerceIn(0, 100) / 100f
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
 
-                            // 预计耗时
+                            // 耗时：预计与实际并排
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                horizontalArrangement = Arrangement.spacedBy(24.dp),
                             ) {
                                 Text(
-                                    text = "预计耗时",
+                                    text = "预计耗时 " +
+                                        (item.minuteEstimate?.let { "$it 分钟" } ?: "未设置"),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Text(
-                                    text = item.minuteEstimate?.let { "$it 分钟" } ?: "未设置",
+                                    text = "实际耗时 ${item.minuteActual} 分钟",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
 
-                            // 重要性与紧急程度：同一行并列展示
+                            // 优先级、重要性、紧急程度：同一行并列
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
+                                Text(
+                                    text = "优先级 ${item.taskPriority}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                                 Text(
                                     text = "重要性 ${item.levelImportance ?: "未设置"}",
                                     style = MaterialTheme.typography.labelMedium,
@@ -712,12 +709,15 @@ private fun TodoRow(
                                 )
                             }
 
-                            // 时间信息：开始时间（即 gmt_create）、最近更新、截止时间
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                TimeInfoRow(label = "开始时间", value = item.gmtCreate)
-                                TimeInfoRow(label = "最近更新", value = item.gmtUpdate)
-                                TimeInfoRow(label = "截止时间", value = item.gmtDeadline)
+                            // 时间：开始与最近更新同一行，截止时间单独一行
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            ) {
+                                TimeInfoText(value = item.gmtCreate, suffix = "开始")
+                                TimeInfoText(value = item.gmtUpdate, suffix = "更新")
                             }
+                            TimeInfoText(value = item.gmtDeadline, suffix = "截止")
                         }
                     }
                 }
@@ -726,26 +726,16 @@ private fun TodoRow(
     }
 }
 
-/** 一条「标签 + 本地时间」信息；值缺失或格式不符时不展示。 */
+/** 一条「yy-MM-dd HH:mm 标签」时间信息；值缺失或格式不符时整条不展示。 */
 @Composable
-private fun TimeInfoRow(label: String, value: String?) {
-    val text = TodoTime.formatLocal(value)
+private fun TimeInfoText(value: String?, suffix: String) {
+    val text = TodoTime.formatLocalShort(value)
     if (text.isNotBlank()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        Text(
+            text = "$text $suffix",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
