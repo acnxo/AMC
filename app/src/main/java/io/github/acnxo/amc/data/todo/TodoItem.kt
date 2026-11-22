@@ -21,6 +21,25 @@ enum class TodoStatus(val code: Int, val label: String) {
 }
 
 /**
+ * 内容类型，取值对齐服务端 `content_type`（见 ToDo OpenAPI README 的枚举表）。
+ */
+enum class TodoContentType(val code: String, val label: String) {
+    TXT("1", "txt"),
+    HTML("2", "html"),
+    MARKDOWN("3", "markdown"),
+    IMAGE("4", "img"),
+    BASE64("6", "base64"),
+    ENCRYPTED("7", "加密"),
+    ;
+
+    companion object {
+        /** 未知取值直接回显原值，避免丢信息。 */
+        fun labelOf(code: String?): String =
+            entries.firstOrNull { it.code == code }?.label ?: (code ?: "未知")
+    }
+}
+
+/**
  * 一条待办事项。
  *
  * 注意字段来源差异：创建接口返回 `title`，查询/修改/状态接口返回 `task_content`，
@@ -40,6 +59,8 @@ data class TodoItem(
     val minuteEstimate: Int?,
     /** 实际耗时（分钟），服务端恒有值，未填报时为 0。 */
     val minuteActual: Int,
+    /** 内容类型：`1` txt、`2` html、`3` markdown 等，见 [TodoContentType]。 */
+    val contentType: String?,
     /** 列表接口返回的是派生优先级 (100-重要)*(100-紧急)，详情接口是数据库原始值。 */
     val taskPriority: Int,
     val levelImportance: Int?,
@@ -61,6 +82,7 @@ data class TodoItem(
             gmtUpdate = json.optStringOrNull("gmt_update"),
             minuteEstimate = json.optIntOrNull("minute_estimate"),
             minuteActual = json.optInt("minute_actual", 0),
+            contentType = json.optStringOrNull("content_type"),
             taskPriority = json.optInt("task_priority", 0),
             levelImportance = json.optIntOrNull("level_importance"),
             levelUrgency = json.optIntOrNull("level_urgency"),

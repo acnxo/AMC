@@ -82,6 +82,7 @@ import androidx.compose.ui.unit.sp
 import io.github.acnxo.amc.data.ServerConfigRepository
 import io.github.acnxo.amc.data.ServerKind
 import io.github.acnxo.amc.data.todo.TodoApi
+import io.github.acnxo.amc.data.todo.TodoContentType
 import io.github.acnxo.amc.data.todo.TodoItem
 import io.github.acnxo.amc.data.todo.TodoReminder
 import io.github.acnxo.amc.data.todo.TodoTime
@@ -638,12 +639,22 @@ private fun TodoRow(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
 
-                            // 编号：用于对照后台与报障
-                            Text(
-                                text = "编号 ${item.taskNo}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            // 编号与内容类型：用于对照后台与报障
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            ) {
+                                Text(
+                                    text = "编号 ${item.taskNo}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = "内容类型 ${TodoContentType.labelOf(item.contentType)}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
 
                             // 完成进度：标签 + 进度条 + 百分比保持在同一行
                             Row(
