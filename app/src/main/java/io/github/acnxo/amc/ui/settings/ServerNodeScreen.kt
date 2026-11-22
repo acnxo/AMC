@@ -305,94 +305,6 @@ private fun ServerNodeContent(
                         }
                     }
                 }
-                // ---------------------------------------------------------------
-                // 节点测试：存活探测 + 鉴权握手（位于「已添加配置」卡片内，生效配置下方）
-                // ---------------------------------------------------------------
-                if (kind == ServerKind.CMS) {
-                    HorizontalDivider()
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                            // 取一份本地引用，便于在下面的分支中安全使用
-                            val profile = selectedProfile
-                            Text(
-                                text = "节点测试",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Text(
-                                text = "使用当前生效配置探测服务连通性，两项都通过才表示节点可用。",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-
-                            if (profile == null) {
-                                Text(
-                                    text = "当前还没有生效配置，请先新增并保存一份配置。",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            } else {
-                                ProbeRow(
-                                    title = NodeProbe.TITLE_LIVE,
-                                    path = NodeProbe.PATH_LIVE,
-                                    result = probeReport?.live,
-                                    running = probing,
-                                )
-                                ProbeRow(
-                                    title = NodeProbe.TITLE_HANDSHAKE,
-                                    path = NodeProbe.PATH_HANDSHAKE,
-                                    result = probeReport?.handshake,
-                                    running = probing,
-                                )
-                                probeReport?.let { report ->
-                                    Text(
-                                        text = if (report.allSuccess) {
-                                            "连通性正常，可以开始使用"
-                                        } else {
-                                            "连通性异常，请按上方提示检查配置"
-                                        },
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = if (report.allSuccess) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            MaterialTheme.colorScheme.error
-                                        },
-                                    )
-                                }
-
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                ) {
-                                    Button(
-                                        onClick = {
-                                            val config = profile.config
-                                            probing = true
-                                            probeReport = null
-                                            probeScope.launch {
-                                                try {
-                                                    probeReport = NodeProbe.run(config)
-                                                } finally {
-                                                    probing = false
-                                                }
-                                            }
-                                        },
-                                        enabled = !probing,
-                                    ) {
-                                        Text(text = if (probing) "测试中…" else "开始测试")
-                                    }
-                                    if (probing) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(20.dp),
-                                            strokeWidth = 2.dp,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                }
-
                 OutlinedButton(onClick = { startNewProfile() }) {
                     Icon(imageVector = Icons.Filled.Add, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
@@ -655,6 +567,94 @@ private fun ServerNodeContent(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // 节点测试：存活探测 + 鉴权握手（页面最底部）
+        // ---------------------------------------------------------------
+        if (kind == ServerKind.CMS) {
+            Card {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    val profile = selectedProfile
+                    Text(
+                        text = "节点测试",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = "使用当前生效配置探测服务连通性，两项都通过才表示节点可用。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    if (profile == null) {
+                        Text(
+                            text = "当前还没有生效配置，请先新增并保存一份配置。",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        ProbeRow(
+                            title = NodeProbe.TITLE_LIVE,
+                            path = NodeProbe.PATH_LIVE,
+                            result = probeReport?.live,
+                            running = probing,
+                        )
+                        ProbeRow(
+                            title = NodeProbe.TITLE_HANDSHAKE,
+                            path = NodeProbe.PATH_HANDSHAKE,
+                            result = probeReport?.handshake,
+                            running = probing,
+                        )
+                        probeReport?.let { report ->
+                            Text(
+                                text = if (report.allSuccess) {
+                                    "连通性正常，可以开始使用"
+                                } else {
+                                    "连通性异常，请按上方提示检查配置"
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (report.allSuccess) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                },
+                            )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Button(
+                                onClick = {
+                                    val config = profile.config
+                                    probing = true
+                                    probeReport = null
+                                    probeScope.launch {
+                                        try {
+                                            probeReport = NodeProbe.run(config)
+                                        } finally {
+                                            probing = false
+                                        }
+                                    }
+                                },
+                                enabled = !probing,
+                            ) {
+                                Text(text = if (probing) "测试中…" else "开始测试")
+                            }
+                            if (probing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
