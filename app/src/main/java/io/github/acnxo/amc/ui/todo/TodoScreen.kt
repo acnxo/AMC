@@ -72,7 +72,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -644,15 +647,10 @@ private fun TodoRow(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                             ) {
-                                Text(
-                                    text = "编号 ${item.taskNo}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Text(
-                                    text = "内容类型 ${TodoContentType.labelOf(item.contentType)}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                Metric(label = "编号", value = "${item.taskNo}")
+                                Metric(
+                                    label = "内容类型",
+                                    value = TodoContentType.labelOf(item.contentType),
                                 )
                             }
 
@@ -661,17 +659,11 @@ private fun TodoRow(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(24.dp),
                             ) {
-                                Text(
-                                    text = "预计耗时 " +
-                                        (item.minuteEstimate?.let { "$it 分钟" } ?: "未设置"),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                Metric(
+                                    label = "预计耗时",
+                                    value = item.minuteEstimate?.let { "$it 分钟" } ?: "未设置",
                                 )
-                                Text(
-                                    text = "实际耗时 ${item.minuteActual} 分钟",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                                Metric(label = "实际耗时", value = "${item.minuteActual} 分钟")
                             }
 
                             // 优先级、重要性、紧急程度：同一行并列
@@ -679,20 +671,18 @@ private fun TodoRow(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                Text(
-                                    text = "优先级 ${item.taskPriority}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                Metric(
+                                    label = "优先级",
+                                    value = "${item.taskPriority}",
+                                    valueColor = MaterialTheme.colorScheme.primary,
                                 )
-                                Text(
-                                    text = "重要性 ${item.levelImportance ?: "未设置"}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                Metric(
+                                    label = "重要性",
+                                    value = "${item.levelImportance ?: "未设置"}",
                                 )
-                                Text(
-                                    text = "紧急程度 ${item.levelUrgency ?: "未设置"}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                Metric(
+                                    label = "紧急程度",
+                                    value = "${item.levelUrgency ?: "未设置"}",
                                 )
                             }
 
@@ -726,6 +716,7 @@ private fun TodoRow(
                                     text = "${item.percentCompletion}%",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold,
                                 )
                             }
                         }
@@ -736,16 +727,34 @@ private fun TodoRow(
     }
 }
 
+/** 指标「名称 + 值」：名称弱化，值加亮加粗，便于一眼扫到数值。 */
+@Composable
+private fun Metric(
+    label: String,
+    value: String,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface,
+) {
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    Text(
+        text = buildAnnotatedString {
+            withStyle(SpanStyle(color = labelColor, fontWeight = FontWeight.Normal)) {
+                append(label)
+                append(" ")
+            }
+            withStyle(SpanStyle(color = valueColor, fontWeight = FontWeight.SemiBold)) {
+                append(value)
+            }
+        },
+        style = MaterialTheme.typography.labelMedium,
+    )
+}
+
 /** 一条「标签 + 时间」信息，格式 `MM-dd HH:mm`；值缺失或格式不符时整条不展示。 */
 @Composable
 private fun TimeInfoText(value: String?, prefix: String) {
     val text = TodoTime.formatLocalMonthDay(value)
     if (text.isNotBlank()) {
-        Text(
-            text = "$prefix $text",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Metric(label = prefix, value = text)
     }
 }
 
