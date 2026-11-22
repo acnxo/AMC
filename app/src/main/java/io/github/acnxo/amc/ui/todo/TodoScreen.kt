@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -525,29 +526,32 @@ private fun TodoRow(
                                 ),
                                 fontWeight = FontWeight.SemiBold,
                                 color = titleColor,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
+                                // 展开时完整展示标题（去掉行数限制与省略号），折叠时回到两行截断
+                                maxLines = if (expanded) Int.MAX_VALUE else 2,
+                                overflow = if (expanded) TextOverflow.Clip else TextOverflow.Ellipsis,
                                 onTextLayout = { titleLayout = it },
-                                modifier = Modifier.drawWithContent {
-                                    drawContent()
-                                    if (strikeProgress <= 0f) return@drawWithContent
-                                    val layout = titleLayout ?: return@drawWithContent
-                                    // 逐行绘制：每行单独取水平范围与垂直中线，多行时不会只划在首行
-                                    for (line in 0 until layout.lineCount) {
-                                        val top = layout.getLineTop(line)
-                                        val bottom = layout.getLineBottom(line)
-                                        val left = layout.getLineLeft(line)
-                                        val right = layout.getLineRight(line)
-                                        val y = (top + bottom) / 2f
-                                        drawLine(
-                                            color = strikeColor,
-                                            start = Offset(left, y),
-                                            end = Offset(left + (right - left) * strikeProgress, y),
-                                            strokeWidth = 1.5.dp.toPx(),
-                                            cap = StrokeCap.Round,
-                                        )
-                                    }
-                                },
+                                modifier = Modifier
+                                    .animateContentSize()
+                                    .drawWithContent {
+                                        drawContent()
+                                        if (strikeProgress <= 0f) return@drawWithContent
+                                        val layout = titleLayout ?: return@drawWithContent
+                                        // 逐行绘制：每行单独取水平范围与垂直中线，多行时不会只划在首行
+                                        for (line in 0 until layout.lineCount) {
+                                            val top = layout.getLineTop(line)
+                                            val bottom = layout.getLineBottom(line)
+                                            val left = layout.getLineLeft(line)
+                                            val right = layout.getLineRight(line)
+                                            val y = (top + bottom) / 2f
+                                            drawLine(
+                                                color = strikeColor,
+                                                start = Offset(left, y),
+                                                end = Offset(left + (right - left) * strikeProgress, y),
+                                                strokeWidth = 1.5.dp.toPx(),
+                                                cap = StrokeCap.Round,
+                                            )
+                                        }
+                                    },
                             )
                             item.gmtDeadline?.let { deadline ->
                                 Text(
