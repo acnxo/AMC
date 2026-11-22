@@ -48,7 +48,7 @@ class TodoApi(
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    /** 分页查询；[filter] 0 待开始、2 进行中、3 已超时、5 已完成、100 全部。 */
+    /** 分页查询；[filter] 0 待开始、2 进行中、3 已超时、4 已逾期、5 已完成、100 全部。 */
     suspend fun page(
         pn: Int = 1,
         ps: Int = 100,
@@ -231,8 +231,11 @@ class TodoApi(
         const val FILTER_PENDING = 0
         const val FILTER_DOING = 2
 
-        /** 已超时：截止时间已过。服务端另有 `4`（已逾期），语义待确认前先不用。 */
-        const val FILTER_OVERDUE = 3
+        /** 已超时（filter=3）。 */
+        const val FILTER_TIMEOUT = 3
+
+        /** 已逾期（filter=4）。 */
+        const val FILTER_OVERDUE = 4
         const val FILTER_DONE = 5
         const val FILTER_ALL = 100
 

@@ -146,12 +146,9 @@ fun TodoScreen(
         error = null
         runCatching { client.page(filter = currentFilter) }
             .onSuccess { page ->
-                // 已超期页只要超期且未完成的；已完成的一律剔掉，与服务端筛重配合避免误入口
-                todoItems = if (currentTab == TodoTab.OVERDUE) {
-                    page.items.filterNot { it.isDone }
-                } else {
-                    page.items
-                }
+                // 两个超期类标签页只留未完成的；已完成的一律剔掉，与服务端筛重配合避免误入口
+                val expiredTab = currentTab == TodoTab.TIMEOUT || currentTab == TodoTab.OVERDUE
+                todoItems = if (expiredTab) page.items.filterNot { it.isDone } else page.items
             }
             .onFailure { error = it.message ?: "加载失败" }
         loading = false
@@ -756,7 +753,8 @@ private fun TimeInfoRow(label: String, value: String?) {
 private enum class TodoTab(val label: String, val filter: Int) {
     PENDING("待开始", TodoApi.FILTER_PENDING),
     DOING("进行中", TodoApi.FILTER_DOING),
-    OVERDUE("已超期", TodoApi.FILTER_OVERDUE),
+    TIMEOUT("已超时", TodoApi.FILTER_TIMEOUT),
+    OVERDUE("已逾期", TodoApi.FILTER_OVERDUE),
 }
 
 private val CARD_SHAPE = RoundedCornerShape(14.dp)
