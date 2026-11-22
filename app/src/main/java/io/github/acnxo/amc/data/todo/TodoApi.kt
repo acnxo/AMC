@@ -1,5 +1,6 @@
 package io.github.acnxo.amc.data.todo
 
+import io.github.acnxo.amc.data.openapi.OpenApiError
 import io.github.acnxo.amc.data.openapi.OpenApiSigner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -180,35 +181,15 @@ class TodoApi(
                 )
             val code = json.optInt("code", -1)
             if (code != CODE_OK) {
-                throw TodoApiException(describe(code, json.optString("message"), response.code), code)
+                throw TodoApiException(
+                    OpenApiError.describe(code, json.optString("message"), response.code),
+                    code,
+                )
             }
             if (!response.isSuccessful) {
                 throw TodoApiException("请求失败：HTTP ${response.code}")
             }
             return json.optJSONObject("data") ?: JSONObject()
-        }
-    }
-
-    /** 把鉴权相关业务码翻译成可读提示，便于用户定位是 AK/SK 还是时钟问题。 */
-    private fun describe(code: Int, message: String, httpStatus: Int): String {
-        val hint = when (code) {
-            19001 -> "缺少签名凭证，请在内容服务节点中填写 AK/SK"
-            19002 -> "签名凭证无效：AK 错误或未开通"
-            19003 -> "凭证不可用：已停用、吊销或过期"
-            19004 -> "来源 IP 不在白名单"
-            19005 -> "签名校验失败：请核对 SK 是否正确"
-            19006 -> "时间戳偏差过大：请检查设备时间是否准确"
-            19007 -> "请求重复：nonce 被复用"
-            19009 -> "该凭证未被授权访问此接口"
-            19010 -> "服务端鉴权服务未就绪"
-            else -> null
-        }
-        return buildString {
-            append(message.ifBlank { "业务错误" })
-            append("（code=").append(code)
-            if (httpStatus !in 200..299) append("，HTTP ").append(httpStatus)
-            append("）")
-            hint?.let { append("：").append(it) }
         }
     }
 
