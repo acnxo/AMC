@@ -641,19 +641,18 @@ private fun TodoRow(
                                 )
                             }
 
-                            // 重要性与紧急程度
+                            // 重要性与紧急程度：同一行并列展示
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                horizontalArrangement = Arrangement.spacedBy(24.dp),
                             ) {
                                 Text(
-                                    text = "重要性 / 紧急程度",
+                                    text = "重要性 ${item.levelImportance ?: "未设置"}",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Text(
-                                    text = "${item.levelImportance ?: "未设置"} / " +
-                                        "${item.levelUrgency ?: "未设置"}",
+                                    text = "紧急程度 ${item.levelUrgency ?: "未设置"}",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
