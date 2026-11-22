@@ -23,8 +23,8 @@ object TodoTime {
     private fun localFormat(): SimpleDateFormat =
         SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
 
-    private fun localShortFormat(): SimpleDateFormat =
-        SimpleDateFormat("yy-MM-dd HH:mm", Locale.getDefault())
+    private fun monthDayFormat(): SimpleDateFormat =
+        SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
 
     /** 解析服务端时间；格式不符或为空时返回 null。 */
     fun parseUtc(value: String?): Date? {
@@ -43,9 +43,9 @@ object TodoTime {
     fun formatLocal(value: String?): String =
         parseUtc(value)?.let { localFormat().format(it) }.orEmpty()
 
-    /** 服务端时间 → 紧凑格式 `26-11-26 15:05`，用于展开区的信息行。 */
-    fun formatLocalShort(value: String?): String =
-        parseUtc(value)?.let { localShortFormat().format(it) }.orEmpty()
+    /** 服务端时间 → `MM-dd HH:mm`，展开区里省去年份的紧凑展示。 */
+    fun formatLocalMonthDay(value: String?): String =
+        parseUtc(value)?.let { monthDayFormat().format(it) }.orEmpty()
 
     /** 毫秒时间戳 → 服务端 UTC 字符串。 */
     fun formatUtc(millis: Long): String = formatUtc(Date(millis))

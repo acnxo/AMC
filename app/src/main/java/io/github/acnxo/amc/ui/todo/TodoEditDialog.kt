@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -267,42 +268,41 @@ private fun pickDateTime(context: Context, initial: Long?, onPicked: (Long) -> U
 private fun formatLocal(millis: Long): String =
     SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(millis))
 
-/** 0-100 的加减波轮：左右按钮点按可单步调整，长按会连续加减。 */
+/** 0-100 的加减波轮：左侧标题、右侧「- 数值 +」，左右按钮点按可单步，长按会连续调整。 */
 @Composable
 private fun LevelStepper(
     label: String,
     value: Int,
     onValueChange: (Int) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            StepButton(
-                icon = Icons.Filled.Remove,
-                contentDescription = "减少$label",
-                enabled = value > LEVEL_MIN,
-                onStep = { onValueChange((value - 1).coerceIn(LEVEL_MIN, LEVEL_MAX)) },
-            )
-            Text(
-                text = value.toString(),
-                style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.weight(1f),
-            )
-            StepButton(
-                icon = Icons.Filled.Add,
-                contentDescription = "增加$label",
-                enabled = value < LEVEL_MAX,
-                onStep = { onValueChange((value + 1).coerceIn(LEVEL_MIN, LEVEL_MAX)) },
-            )
-        }
+        StepButton(
+            icon = Icons.Filled.Remove,
+            contentDescription = "减少$label",
+            enabled = value > LEVEL_MIN,
+            onStep = { onValueChange((value - 1).coerceIn(LEVEL_MIN, LEVEL_MAX)) },
+        )
+        Text(
+            text = value.toString(),
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(VALUE_WIDTH),
+        )
+        StepButton(
+            icon = Icons.Filled.Add,
+            contentDescription = "增加$label",
+            enabled = value < LEVEL_MAX,
+            onStep = { onValueChange((value + 1).coerceIn(LEVEL_MIN, LEVEL_MAX)) },
+        )
     }
 }
 
@@ -339,6 +339,9 @@ private fun StepButton(
 
 private const val LEVEL_MIN = 0
 private const val LEVEL_MAX = 100
+
+/** 波轮数值区的固定宽度，保证三行的「- 数值 +」竖直对齐。 */
+private val VALUE_WIDTH = 48.dp
 
 /** 长按连发参数：按住 400ms 后开始，每 60ms 一步。 */
 private const val REPEAT_DELAY_MS = 400L

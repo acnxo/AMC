@@ -720,15 +720,15 @@ private fun TodoRow(
                                 )
                             }
 
-                            // 时间：开始与最近更新同一行，截止时间单独一行
+                            // 时间：开始与最近更新同一行，截止时间单独一行（标题在前，省去年份）
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                             ) {
-                                TimeInfoText(value = item.gmtCreate, suffix = "开始")
-                                TimeInfoText(value = item.gmtUpdate, suffix = "更新")
+                                TimeInfoText(value = item.gmtCreate, prefix = "开始")
+                                TimeInfoText(value = item.gmtUpdate, prefix = "更新")
                             }
-                            TimeInfoText(value = item.gmtDeadline, suffix = "截止")
+                            TimeInfoText(value = item.gmtDeadline, prefix = "截止")
                         }
                     }
                 }
@@ -737,13 +737,13 @@ private fun TodoRow(
     }
 }
 
-/** 一条「yy-MM-dd HH:mm 标签」时间信息；值缺失或格式不符时整条不展示。 */
+/** 一条「标签 + 时间」信息，格式 `MM-dd HH:mm`；值缺失或格式不符时整条不展示。 */
 @Composable
-private fun TimeInfoText(value: String?, suffix: String) {
-    val text = TodoTime.formatLocalShort(value)
+private fun TimeInfoText(value: String?, prefix: String) {
+    val text = TodoTime.formatLocalMonthDay(value)
     if (text.isNotBlank()) {
         Text(
-            text = "$text $suffix",
+            text = "$prefix $text",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
