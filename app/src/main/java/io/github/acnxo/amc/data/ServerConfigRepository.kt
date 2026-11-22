@@ -169,7 +169,9 @@ class ServerConfigRepository private constructor(context: Context) {
                     .put(FIELD_DOMAIN, profile.config.domain)
                     .put(FIELD_HTTPS, profile.config.useHttps)
                     .put(FIELD_IP, profile.config.ip)
-                    .put(FIELD_PORT, profile.config.port),
+                    .put(FIELD_PORT, profile.config.port)
+                    .put(FIELD_ACCESS_KEY, profile.config.accessKey)
+                    .put(FIELD_SECRET_KEY, profile.config.secretKey),
             )
         }
         return array.toString()
@@ -196,6 +198,8 @@ class ServerConfigRepository private constructor(context: Context) {
                                 useHttps = item.optBoolean(FIELD_HTTPS, true),
                                 ip = item.optString(FIELD_IP),
                                 port = item.optInt(FIELD_PORT, ServerConfig.DEFAULT_PORT),
+                                accessKey = item.optString(FIELD_ACCESS_KEY),
+                                secretKey = item.optString(FIELD_SECRET_KEY),
                             ),
                         ),
                     )
@@ -228,6 +232,8 @@ class ServerConfigRepository private constructor(context: Context) {
         private const val FIELD_HTTPS = "useHttps"
         private const val FIELD_IP = "ip"
         private const val FIELD_PORT = "port"
+        private const val FIELD_ACCESS_KEY = "accessKey"
+        private const val FIELD_SECRET_KEY = "secretKey"
 
         @Volatile
         private var instance: ServerConfigRepository? = null

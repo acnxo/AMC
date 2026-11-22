@@ -1,5 +1,6 @@
 package io.github.acnxo.amc.data.todo
 
+import io.github.acnxo.amc.data.openapi.OpenApiSigner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -8,6 +9,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 
 /** 业务失败：服务端返回 `code != 1`，或 HTTP 非 2xx。 */
@@ -27,8 +29,16 @@ class TodoApiException(
  * - `PATCH  /OpenAPI/V1/Meta/CMS/ToDo/StatusToggle`
  *
  * 服务端业务成败以响应体 `code` 为准（HTTP 200 也可能是业务失败）。
+ *
+ * 若当前节点配置了 AK/SK，每个请求都会按 META1-HMAC-SHA256 附带签名头
+ * （`Authorization` / `X-META-TS` / `X-META-NONCE`）；未配置时不加签名头，
+ * 兼容尚未开启鉴权的环境。
  */
-class TodoApi(baseUrl: String) {
+class TodoApi(
+    baseUrl: String,
+    private val accessKey: String = "",
+    private val secretKey: String = "",
+) {
 
     private val base = baseUrl.trim().trimEnd('/')
 
@@ -44,9 +54,10 @@ class TodoApi(baseUrl: String) {
         filter: Int = FILTER_ALL,
         ordMode: Int = 2,
     ): TodoPage = withContext(Dispatchers.IO) {
-        val url = "$base/OpenAPI/V1/Meta/CMS/ToDo/OffsetPage" +
-            "?pn=$pn&ps=$ps&filter=$filter&ordMode=$ordMode"
-        val data = execute(Request.Builder().url(url).get().build())
+        val query = "pn=$pn&ps=$ps&filter=$filter&ordMode=$ordMode"
+        val data = execute(
+            request(method = "GET", path = pathOf("OffsetPage"), query = query, bodyText = null),
+        )
         val list = data.optJSONArray("list") ?: JSONArray()
         TodoPage(
             items = buildList {
@@ -61,8 +72,10 @@ class TodoApi(baseUrl: String) {
     }
 
     suspend fun detail(taskNo: Long): TodoItem = withContext(Dispatchers.IO) {
-        val url = "$base/OpenAPI/V1/Meta/CMS/ToDo/Detail?id=$taskNo"
-        TodoItem.fromJson(execute(Request.Builder().url(url).get().build()))
+        val data = execute(
+            request(method = "GET", path = pathOf("Detail"), query = "id=$taskNo", bodyText = null),
+        )
+        TodoItem.fromJson(data)
     }
 
     suspend fun create(
@@ -81,7 +94,7 @@ class TodoApi(baseUrl: String) {
             levelImportance?.let { put("level_importance", it) }
             levelUrgency?.let { put("level_urgency", it) }
         }
-        val data = execute(post("Create", body))
+        val data = execute(jsonRequest("POST", "Create", body))
         TodoItem.fromJson(data)
     }
 
@@ -102,7 +115,7 @@ class TodoApi(baseUrl: String) {
             minuteEstimate?.let { put("minute_estimate", it) }
             percentCompletion?.let { put("percent_completion", it) }
         }
-        TodoItem.fromJson(execute(patch("Modify", body)))
+        TodoItem.fromJson(execute(jsonRequest("PATCH", "Modify", body)))
     }
 
     /** 快捷完成/取消完成；[quickComplete] 为 true 时服务端置为已完成。 */
@@ -116,41 +129,86 @@ class TodoApi(baseUrl: String) {
                     put("task_status", TodoStatus.PENDING.code.toString())
                 }
             }
-            TodoItem.fromJson(execute(patch("StatusToggle", body)))
+            TodoItem.fromJson(execute(jsonRequest("PATCH", "StatusToggle", body)))
         }
 
-    private fun post(action: String, body: JSONObject): Request =
-        Request.Builder()
-            .url("$base/OpenAPI/V1/Meta/CMS/ToDo/$action")
-            .post(body.toString().toRequestBody(JSON_MEDIA_TYPE))
-            .build()
+    private fun pathOf(action: String): String = "/OpenAPI/V1/Meta/CMS/ToDo/$action"
 
-    private fun patch(action: String, body: JSONObject): Request =
-        Request.Builder()
-            .url("$base/OpenAPI/V1/Meta/CMS/ToDo/$action")
-            .patch(body.toString().toRequestBody(JSON_MEDIA_TYPE))
-            .build()
+    private fun jsonRequest(method: String, action: String, body: JSONObject): Request =
+        request(method = method, path = pathOf(action), query = null, bodyText = body.toString())
+
+    /**
+     * 构造请求并按需附加 AK/SK 签名头。
+     *
+     * 签名必须基于**实际发送的字节**：这里先用同一份 UTF-8 字节算摘要，
+     * 再把这份字节交给 OkHttp，避免重新序列化导致摘要不一致（19005）。
+     */
+    private fun request(
+        method: String,
+        path: String,
+        query: String?,
+        bodyText: String?,
+    ): Request {
+        val url = if (query.isNullOrEmpty()) "$base$path" else "$base$path?$query"
+        val body = bodyText?.toByteArray(StandardCharsets.UTF_8)
+        val builder = Request.Builder().url(url)
+        if (body == null) {
+            builder.method(method, null)
+        } else {
+            builder.method(method, body.toRequestBody(JSON_MEDIA_TYPE))
+        }
+        if (accessKey.isNotBlank() && secretKey.isNotBlank()) {
+            OpenApiSigner
+                .signHeaders(accessKey, secretKey, method, path, query, body)
+                .forEach { (name, value) -> builder.header(name, value) }
+        }
+        return builder.build()
+    }
 
     /** 执行请求并解包信封，`code != 1` 抛 [TodoApiException]。 */
     private fun execute(request: Request): JSONObject {
         client.newCall(request).execute().use { response ->
             val text = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                throw TodoApiException(
-                    "请求失败：HTTP ${response.code}" + if (text.isBlank()) "" else "（${text.take(120)}）",
+            val json = runCatching { JSONObject(text) }.getOrNull()
+                ?: throw TodoApiException(
+                    if (response.isSuccessful) {
+                        "响应不是合法 JSON"
+                    } else {
+                        "请求失败：HTTP ${response.code}" +
+                            if (text.isBlank()) "" else "（${text.take(120)}）"
+                    },
                 )
-            }
-            val json = runCatching { JSONObject(text) }.getOrElse {
-                throw TodoApiException("响应不是合法 JSON")
-            }
             val code = json.optInt("code", -1)
             if (code != CODE_OK) {
-                throw TodoApiException(
-                    json.optString("message").ifBlank { "业务错误（code=$code）" },
-                    code,
-                )
+                throw TodoApiException(describe(code, json.optString("message"), response.code), code)
+            }
+            if (!response.isSuccessful) {
+                throw TodoApiException("请求失败：HTTP ${response.code}")
             }
             return json.optJSONObject("data") ?: JSONObject()
+        }
+    }
+
+    /** 把鉴权相关业务码翻译成可读提示，便于用户定位是 AK/SK 还是时钟问题。 */
+    private fun describe(code: Int, message: String, httpStatus: Int): String {
+        val hint = when (code) {
+            19001 -> "缺少签名凭证，请在内容服务节点中填写 AK/SK"
+            19002 -> "签名凭证无效：AK 错误或未开通"
+            19003 -> "凭证不可用：已停用、吊销或过期"
+            19004 -> "来源 IP 不在白名单"
+            19005 -> "签名校验失败：请核对 SK 是否正确"
+            19006 -> "时间戳偏差过大：请检查设备时间是否准确"
+            19007 -> "请求重复：nonce 被复用"
+            19009 -> "该凭证未被授权访问此接口"
+            19010 -> "服务端鉴权服务未就绪"
+            else -> null
+        }
+        return buildString {
+            append(message.ifBlank { "业务错误" })
+            append("（code=").append(code)
+            if (httpStatus !in 200..299) append("，HTTP ").append(httpStatus)
+            append("）")
+            hint?.let { append("：").append(it) }
         }
     }
 
@@ -159,6 +217,6 @@ class TodoApi(baseUrl: String) {
         const val FILTER_ALL = 100
         const val FILTER_DONE = 5
 
-        private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+        private val JSON_MEDIA_TYPE = "application/json;charset=UTF-8".toMediaType()
     }
 }

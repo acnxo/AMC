@@ -19,6 +19,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -29,6 +31,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
@@ -49,6 +52,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.acnxo.amc.data.ServerConfig
 import io.github.acnxo.amc.data.ServerConfigRepository
@@ -117,6 +122,15 @@ private fun ServerNodeContent(
             (selectedProfile?.config?.port ?: ServerConfig.DEFAULT_PORT).toString(),
         )
     }
+    // OpenAPI 鉴权凭证（仅内容服务节点使用）
+    var accessKey by rememberSaveable {
+        mutableStateOf(selectedProfile?.config?.accessKey.orEmpty())
+    }
+    var secretKey by rememberSaveable {
+        mutableStateOf(selectedProfile?.config?.secretKey.orEmpty())
+    }
+    // SK 默认隐藏，可手动切换显示
+    var secretVisible by rememberSaveable { mutableStateOf(false) }
 
     // 长按后弹出上下文菜单的配置 id
     var menuProfileId by remember { mutableStateOf<String?>(null) }
@@ -131,6 +145,9 @@ private fun ServerNodeContent(
         domain = profile?.config?.domain ?: ServerConfig.DEFAULT_DOMAIN
         ip = profile?.config?.ip.orEmpty()
         portText = (profile?.config?.port ?: ServerConfig.DEFAULT_PORT).toString()
+        accessKey = profile?.config?.accessKey.orEmpty()
+        secretKey = profile?.config?.secretKey.orEmpty()
+        secretVisible = false
     }
 
     fun startNewProfile() {
@@ -144,10 +161,20 @@ private fun ServerNodeContent(
         useHttps = useHttps,
         ip = ip,
         port = portText.toIntOrNull() ?: 0,
+        accessKey = accessKey.trim(),
+        secretKey = secretKey.trim(),
     )
     val nameError = if (name.isBlank()) "请输入配置名" else null
     val configError = draft.validate()
-    val canSave = nameError == null && configError == null
+    // AK/SK 可以都留空（不签名），但只填一个视为未填完
+    val credentialsError = when {
+        accessKey.isBlank() && secretKey.isBlank() -> null
+        accessKey.isBlank() -> "已填写 SK，请补全 AK"
+        secretKey.isBlank() -> "已填写 AK，请补全 SK"
+        else -> null
+    }
+    val canSave = nameError == null && configError == null &&
+        (kind != ServerKind.CMS || credentialsError == null)
 
     Column(
         modifier = modifier
@@ -219,7 +246,8 @@ private fun ServerNodeContent(
                                     style = MaterialTheme.typography.bodyLarge,
                                 )
                                 Text(
-                                    text = profile.config.BASE_URL,
+                                    text = profile.config.BASE_URL +
+                                        if (profile.config.hasCredentials) " · 已配置 AK/SK" else "",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -382,6 +410,60 @@ private fun ServerNodeContent(
                         isError = configError != null,
                         supportingText = {
                             Text(text = "范围 1-65535")
+                        },
+                    )
+                }
+
+                if (kind == ServerKind.CMS) {
+                    HorizontalDivider()
+                    Text(
+                        text = "OpenAPI 鉴权（AK/SK）",
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        text = "填写平台下发的凭证后，调用待办等开放接口会自动附带签名；" +
+                            "留空表示不签名（仅适用于未开启鉴权的环境）。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedTextField(
+                        value = accessKey,
+                        onValueChange = { value -> accessKey = value.trim() },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(text = "Access Key（AK）") },
+                        placeholder = { Text(text = "平台下发的 AccessKeyId") },
+                        singleLine = true,
+                        isError = credentialsError != null,
+                        supportingText = {
+                            Text(text = credentialsError ?: "AK 与 SK 需成对填写")
+                        },
+                    )
+                    OutlinedTextField(
+                        value = secretKey,
+                        onValueChange = { value -> secretKey = value.trim() },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(text = "Secret Key（SK）") },
+                        singleLine = true,
+                        visualTransformation = if (secretVisible) {
+                            VisualTransformation.None
+                        } else {
+                            PasswordVisualTransformation()
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        trailingIcon = {
+                            IconButton(onClick = { secretVisible = !secretVisible }) {
+                                Icon(
+                                    imageVector = if (secretVisible) {
+                                        Icons.Filled.VisibilityOff
+                                    } else {
+                                        Icons.Filled.Visibility
+                                    },
+                                    contentDescription = if (secretVisible) "隐藏 SK" else "显示 SK",
+                                )
+                            }
+                        },
+                        supportingText = {
+                            Text(text = "仅保存在本机配置中，不会写入日志")
                         },
                     )
                 }

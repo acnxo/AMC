@@ -43,7 +43,15 @@ data class ServerConfig(
     val useHttps: Boolean = true,
     val ip: String = "",
     val port: Int = DEFAULT_PORT,
+    /** OpenAPI 鉴权用的 Access Key（内容服务节点）；留空表示不签名。 */
+    val accessKey: String = "",
+    /** OpenAPI 鉴权用的 Secret Key；仅保存在本机配置中，不写入日志。 */
+    val secretKey: String = "",
 ) {
+
+    /** 是否已配置可用的 AK/SK，决定请求是否附带签名头。 */
+    val hasCredentials: Boolean
+        get() = accessKey.isNotBlank() && secretKey.isNotBlank()
 
     /** 由当前模式拼接出的基础地址，如 `https://example.com`、`http://192.168.1.10:8080`。 */
     val BASE_URL: String

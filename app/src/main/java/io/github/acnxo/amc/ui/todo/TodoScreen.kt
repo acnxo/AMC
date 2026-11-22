@@ -105,9 +105,12 @@ fun TodoScreen(
     val context = LocalContext.current
     val configRepository = remember { ServerConfigRepository.getInstance(context) }
     val configStates by configRepository.states.collectAsState()
-    val baseUrl = configStates[ServerKind.CMS]?.selected?.config?.BASE_URL.orEmpty()
-    val api = remember(baseUrl) {
-        baseUrl.takeIf { it.isNotBlank() }?.let { TodoApi(it) }
+    val activeConfig = configStates[ServerKind.CMS]?.selected?.config
+    val baseUrl = activeConfig?.BASE_URL.orEmpty()
+    val accessKey = activeConfig?.accessKey.orEmpty()
+    val secretKey = activeConfig?.secretKey.orEmpty()
+    val api = remember(baseUrl, accessKey, secretKey) {
+        baseUrl.takeIf { it.isNotBlank() }?.let { TodoApi(it, accessKey, secretKey) }
     }
 
     var todoItems by remember { mutableStateOf<List<TodoItem>>(emptyList()) }
