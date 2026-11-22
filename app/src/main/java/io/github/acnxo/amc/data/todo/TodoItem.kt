@@ -38,6 +38,10 @@ data class TodoItem(
     val gmtCreate: String?,
     val gmtUpdate: String?,
     val minuteEstimate: Int?,
+    /** 列表接口返回的是派生优先级 (100-重要)*(100-紧急)，详情接口是数据库原始值。 */
+    val taskPriority: Int,
+    val levelImportance: Int?,
+    val levelUrgency: Int?,
 ) {
     val isDone: Boolean get() = status == TodoStatus.DONE.code || flagFinish
 
@@ -54,6 +58,9 @@ data class TodoItem(
             gmtCreate = json.optStringOrNull("gmt_create"),
             gmtUpdate = json.optStringOrNull("gmt_update"),
             minuteEstimate = json.optIntOrNull("minute_estimate"),
+            taskPriority = json.optInt("task_priority", 0),
+            levelImportance = json.optIntOrNull("level_importance"),
+            levelUrgency = json.optIntOrNull("level_urgency"),
         )
     }
 }

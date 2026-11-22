@@ -70,12 +70,16 @@ class TodoApi(baseUrl: String) {
         content: String,
         deadline: java.util.Date? = null,
         minuteEstimate: Int? = null,
+        levelImportance: Int? = null,
+        levelUrgency: Int? = null,
     ): TodoItem = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("title", title)
             put("content", content)
             deadline?.let { put("gmt_deadline", TodoTime.formatUtc(it)) }
             minuteEstimate?.let { put("minute_estimate", it) }
+            levelImportance?.let { put("level_importance", it) }
+            levelUrgency?.let { put("level_urgency", it) }
         }
         val data = execute(post("Create", body))
         TodoItem.fromJson(data)

@@ -141,7 +141,13 @@ fun TodoScreen(
         loading = false
     }
 
-    fun save(title: String, content: String, deadline: Date?) {
+    fun save(
+        title: String,
+        content: String,
+        deadline: Date?,
+        importance: Int?,
+        urgency: Int?,
+    ) {
         val client = api ?: return
         val current = editing
         scope.launch {
@@ -149,7 +155,13 @@ fun TodoScreen(
             error = null
             runCatching {
                 val saved = if (current == null) {
-                    client.create(title = title, content = content, deadline = deadline)
+                    client.create(
+                        title = title,
+                        content = content,
+                        deadline = deadline,
+                        levelImportance = importance,
+                        levelUrgency = urgency,
+                    )
                 } else {
                     client.modify(
                         taskNo = current.taskNo,
@@ -332,8 +344,11 @@ fun TodoScreen(
                     } else {
                         todoItems.filterNot { it.isDone }
                     }
+                    // 未完成在前；同组内按优先级指标（task_priority）降序，再看截止时间
                     val sorted = visible.sortedWith(
-                        compareBy<TodoItem> { it.isDone }.thenBy { it.gmtDeadline ?: "9999" },
+                        compareBy<TodoItem> { it.isDone }
+                            .thenByDescending { it.taskPriority }
+                            .thenBy { it.gmtDeadline ?: "9999" },
                     )
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
@@ -391,11 +406,11 @@ fun TodoScreen(
             initial = editing,
             saving = saving,
             onDismiss = { editorVisible = false },
-            onConfirm = { title, content, deadline ->
+            onConfirm = { title, content, deadline, importance, urgency ->
                 if (title.isBlank()) {
                     Toast.makeText(context, "标题不能为空", Toast.LENGTH_SHORT).show()
                 } else {
-                    save(title, content, deadline)
+                    save(title, content, deadline, importance, urgency)
                 }
             },
         )
@@ -621,6 +636,24 @@ private fun TodoRow(
                                 )
                                 Text(
                                     text = item.minuteEstimate?.let { "$it 分钟" } ?: "未设置",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+
+                            // 重要性与紧急程度
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    text = "重要性 / 紧急程度",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = "${item.levelImportance ?: "未设置"} / " +
+                                        "${item.levelUrgency ?: "未设置"}",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

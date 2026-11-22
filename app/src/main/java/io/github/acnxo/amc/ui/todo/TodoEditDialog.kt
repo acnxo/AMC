@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -20,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.github.acnxo.amc.data.todo.TodoItem
 import io.github.acnxo.amc.data.todo.TodoTime
@@ -40,13 +42,25 @@ fun TodoEditDialog(
     initial: TodoItem?,
     saving: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: (title: String, content: String, deadline: Date?) -> Unit,
+    onConfirm: (
+        title: String,
+        content: String,
+        deadline: Date?,
+        importance: Int?,
+        urgency: Int?,
+    ) -> Unit,
 ) {
     val context = LocalContext.current
     var title by rememberSaveable { mutableStateOf(initial?.title.orEmpty()) }
     var content by rememberSaveable { mutableStateOf(initial?.content.orEmpty()) }
     var deadlineMillis by rememberSaveable {
         mutableStateOf(TodoTime.parseUtc(initial?.gmtDeadline)?.time)
+    }
+    var importanceText by rememberSaveable {
+        mutableStateOf(initial?.levelImportance?.toString().orEmpty())
+    }
+    var urgencyText by rememberSaveable {
+        mutableStateOf(initial?.levelUrgency?.toString().orEmpty())
     }
 
     AlertDialog(
@@ -72,6 +86,34 @@ fun TodoEditDialog(
                     minLines = 3,
                     maxLines = 6,
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = importanceText,
+                        onValueChange = { value -> importanceText = value.filter(Char::isDigit).take(3) },
+                        modifier = Modifier.weight(1f),
+                        label = { Text(text = "重要性") },
+                        placeholder = { Text(text = "0-100") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    )
+                    OutlinedTextField(
+                        value = urgencyText,
+                        onValueChange = { value -> urgencyText = value.filter(Char::isDigit).take(3) },
+                        modifier = Modifier.weight(1f),
+                        label = { Text(text = "紧急程度") },
+                        placeholder = { Text(text = "0-100") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    )
+                }
+                if (initial != null) {
+                    Text(
+                        text = "服务端 Modify 暂不支持修改重要性与紧急程度，已有事项的改动不会生效。",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -121,6 +163,8 @@ fun TodoEditDialog(
                         title.trim(),
                         content.trim(),
                         deadlineMillis?.let { Date(it) },
+                        importanceText.toIntOrNull()?.coerceIn(0, 100),
+                        urgencyText.toIntOrNull()?.coerceIn(0, 100),
                     )
                 },
                 enabled = !saving && title.isNotBlank(),
