@@ -8,7 +8,10 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -16,11 +19,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,6 +40,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.delay
 import io.github.acnxo.amc.data.todo.TodoItem
 import io.github.acnxo.amc.data.todo.TodoTime
@@ -98,142 +102,177 @@ fun TodoEditDialog(
     // 初始是否已有截止时间：用于判断「清空」是否真的需要通知服务端
     val hadDeadline = remember(initial?.taskNo) { initial?.gmtDeadline != null }
 
-    AlertDialog(
-        onDismissRequest = { if (!saving) onDismiss() },
-        title = {
-            Text(text = if (editing) "编辑待办" else "新建待办")
-        },
-        text = {
+    // 说明性文本集中放到按钮下方，默认收起，避免挤占主体内容的可视区域
+    var notesExpanded by rememberSaveable { mutableStateOf(false) }
+    val notes = buildList {
+        add(
+            if (editing) {
+                "预计耗时留空表示不修改。"
+            } else {
+                "预计耗时留空时由服务端按缺省值 $DEFAULT_MINUTE_ESTIMATE 分钟填充。"
+            },
+        )
+        if (editing) {
+            add("完成进度改为 100% 会自动标记为已完成，改回 0% 则回到待开始并清空完成时间。")
+        }
+        add("截止时间同时用于本机提醒，清空时会同步通知服务端置空该字段。")
+    }
+
+    Dialog(onDismissRequest = { if (!saving) onDismiss() }) {
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .heightIn(max = DIALOG_MAX_HEIGHT)
+                    .padding(20.dp),
             ) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(text = "标题") },
-                    minLines = 1,
-                    maxLines = 4,
+                Text(
+                    text = if (editing) "编辑待办" else "新建待办",
+                    style = MaterialTheme.typography.titleLarge,
                 )
-                OutlinedTextField(
-                    value = content,
-                    onValueChange = { content = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(text = "事项内容") },
-                    minLines = 3,
-                    maxLines = 6,
-                )
-                LevelStepper(
-                    label = "重要性",
-                    value = importance,
-                    onValueChange = { importance = it },
-                )
-                LevelStepper(
-                    label = "紧急程度",
-                    value = urgency,
-                    onValueChange = { urgency = it },
-                )
-                OutlinedTextField(
-                    value = minuteEstimate,
-                    onValueChange = { value ->
-                        minuteEstimate = value.filter { it.isDigit() }.take(MAX_MINUTE_DIGITS)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(text = "预计耗时（分钟）") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    supportingText = {
-                        Text(
-                            text = if (editing) {
-                                "留空表示不修改"
-                            } else {
-                                "留空时由服务端按缺省值 $DEFAULT_MINUTE_ESTIMATE 分钟填充"
-                            },
-                        )
-                    },
-                )
-                if (editing) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 主体内容：内容过多时只滚动这一块，标题与按钮保持可见
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(text = "标题") },
+                        minLines = 1,
+                        maxLines = 4,
+                    )
+                    OutlinedTextField(
+                        value = content,
+                        onValueChange = { content = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(text = "事项内容") },
+                        minLines = 3,
+                        maxLines = 6,
+                    )
                     LevelStepper(
-                        label = "完成进度",
-                        value = progress,
-                        onValueChange = { progress = it },
+                        label = "重要性",
+                        value = importance,
+                        onValueChange = { importance = it },
                     )
-                    Text(
-                        text = "进度改为 100% 会自动标记为已完成，改回 0% 则回到待开始并清空完成时间。",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    LevelStepper(
+                        label = "紧急程度",
+                        value = urgency,
+                        onValueChange = { urgency = it },
                     )
+                    OutlinedTextField(
+                        value = minuteEstimate,
+                        onValueChange = { value ->
+                            minuteEstimate = value.filter { it.isDigit() }.take(MAX_MINUTE_DIGITS)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(text = "预计耗时（分钟）") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    )
+                    if (editing) {
+                        LevelStepper(
+                            label = "完成进度",
+                            value = progress,
+                            onValueChange = { progress = it },
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column {
+                            Text(
+                                text = "完成截止时间",
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                            Text(
+                                text = deadlineMillis?.let { formatLocal(it) } ?: "未设置",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Row {
+                            if (deadlineMillis != null) {
+                                TextButton(onClick = { deadlineMillis = null }) {
+                                    Text(text = "清空")
+                                }
+                            }
+                            TextButton(
+                                onClick = {
+                                    pickDateTime(context, deadlineMillis) { picked ->
+                                        deadlineMillis = picked
+                                    }
+                                },
+                            ) {
+                                Text(text = if (deadlineMillis == null) "设置" else "修改")
+                            }
+                        }
+                    }
                 }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.End,
                 ) {
-                    Column {
-                        Text(
-                            text = "完成截止时间",
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                        Text(
-                            text = deadlineMillis?.let { formatLocal(it) } ?: "未设置",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    TextButton(onClick = onDismiss, enabled = !saving) {
+                        Text(text = "取消")
                     }
-                    Row {
-                        if (deadlineMillis != null) {
-                            TextButton(onClick = { deadlineMillis = null }) {
-                                Text(text = "清空")
-                            }
-                        }
-                        TextButton(
-                            onClick = {
-                                pickDateTime(context, deadlineMillis) { picked ->
-                                    deadlineMillis = picked
-                                }
-                            },
-                        ) {
-                            Text(text = if (deadlineMillis == null) "设置" else "修改")
+                    TextButton(
+                        onClick = {
+                            onConfirm(
+                                TodoEditResult(
+                                    title = title.trim(),
+                                    content = content.trim(),
+                                    deadline = deadlineMillis?.let { Date(it) },
+                                    // 原本有截止时间、这次被清空时，才需要显式通知服务端
+                                    clearDeadline = editing && hadDeadline && deadlineMillis == null,
+                                    importance = importance,
+                                    urgency = urgency,
+                                    minuteEstimate = minuteEstimate.toIntOrNull()?.coerceAtLeast(0),
+                                    progress = if (editing) progress else null,
+                                ),
+                            )
+                        },
+                        enabled = !saving && title.isNotBlank(),
+                    ) {
+                        Text(text = "完成")
+                    }
+                }
+
+                // 说明区：位于按钮下方，默认收起
+                TextButton(
+                    onClick = { notesExpanded = !notesExpanded },
+                ) {
+                    Text(
+                        text = if (notesExpanded) "收起说明" else "查看说明",
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+                if (notesExpanded) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        notes.forEach { note ->
+                            Text(
+                                text = "· $note",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
-                Text(
-                    text = "截止时间同时用于本机提醒；清空会同步通知服务端置空该字段。",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onConfirm(
-                        TodoEditResult(
-                            title = title.trim(),
-                            content = content.trim(),
-                            deadline = deadlineMillis?.let { Date(it) },
-                            // 原本有截止时间、这次被清空时，才需要显式通知服务端
-                            clearDeadline = editing && hadDeadline && deadlineMillis == null,
-                            importance = importance,
-                            urgency = urgency,
-                            minuteEstimate = minuteEstimate.toIntOrNull()?.coerceAtLeast(0),
-                            progress = if (editing) progress else null,
-                        ),
-                    )
-                },
-                enabled = !saving && title.isNotBlank(),
-            ) {
-                Text(text = "完成")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !saving) {
-                Text(text = "取消")
-            }
-        },
-    )
+        }
+    }
 }
 
 private fun pickDateTime(context: Context, initial: Long?, onPicked: (Long) -> Unit) {
@@ -342,6 +381,9 @@ private const val LEVEL_MAX = 100
 
 /** 波轮数值区的固定宽度，保证三行的「- 数值 +」竖直对齐。 */
 private val VALUE_WIDTH = 48.dp
+
+/** 对话框主体的最大高度，超出时只滚动内容区。 */
+private val DIALOG_MAX_HEIGHT = 520.dp
 
 /** 长按连发参数：按住 400ms 后开始，每 60ms 一步。 */
 private const val REPEAT_DELAY_MS = 400L
