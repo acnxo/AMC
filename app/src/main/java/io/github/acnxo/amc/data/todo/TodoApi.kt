@@ -99,13 +99,23 @@ class TodoApi(
         TodoItem.fromJson(data)
     }
 
-    /** PATCH 语义：传 null 的字段不修改。 */
+    /**
+     * PATCH 语义：为 null 或不传的字段一律不修改。
+     *
+     * - [deadline] 非空时设置完成截止时间；
+     * - [clearDeadline] 为 true 时传 `flag_clear_deadline`，服务端把截止时间置 NULL；
+     * - [percentCompletion] 会联动任务状态与完成时间：
+     *   `0` 回到待开始并清空完成时间，`100` 标记已完成并写入完成时间。
+     */
     suspend fun modify(
         taskNo: Long,
         title: String? = null,
         content: String? = null,
         deadline: java.util.Date? = null,
+        clearDeadline: Boolean = false,
         minuteEstimate: Int? = null,
+        levelImportance: Int? = null,
+        levelUrgency: Int? = null,
         percentCompletion: Int? = null,
     ): TodoItem = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
@@ -113,11 +123,34 @@ class TodoApi(
             title?.let { put("title", it) }
             content?.let { put("content", it) }
             deadline?.let { put("gmt_deadline", TodoTime.formatUtc(it)) }
+            if (clearDeadline) put("flag_clear_deadline", true)
             minuteEstimate?.let { put("minute_estimate", it) }
+            levelImportance?.let { put("level_importance", it) }
+            levelUrgency?.let { put("level_urgency", it) }
             percentCompletion?.let { put("percent_completion", it) }
         }
         TodoItem.fromJson(execute(jsonRequest("PATCH", "Modify", body)))
     }
+
+    /**
+     * 逻辑删除：`flag_delete=1`，数据保留可恢复。
+     *
+     * 服务端语义：`flag_delete` 优先级高于其它编辑字段，同一次请求里带上它时，
+     * 其余字段会被忽略；重复删除幂等。
+     */
+    suspend fun softDelete(taskNo: Long): TodoItem = setDeleteFlag(taskNo, deleted = true)
+
+    /** 恢复被逻辑删除的任务：`flag_delete=0`（已删除的任务必须先恢复才能普通编辑）。 */
+    suspend fun restore(taskNo: Long): TodoItem = setDeleteFlag(taskNo, deleted = false)
+
+    private suspend fun setDeleteFlag(taskNo: Long, deleted: Boolean): TodoItem =
+        withContext(Dispatchers.IO) {
+            val body = JSONObject().apply {
+                put("task_no", taskNo)
+                put("flag_delete", if (deleted) "1" else "0")
+            }
+            TodoItem.fromJson(execute(jsonRequest("PATCH", "Modify", body)))
+        }
 
     /** 快捷完成/取消完成；[quickComplete] 为 true 时服务端置为已完成。 */
     suspend fun quickComplete(taskNo: Long, complete: Boolean): TodoItem =

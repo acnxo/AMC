@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -31,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -42,38 +44,62 @@ import java.util.Date
 import java.util.Locale
 
 /**
+ * 编辑对话框的产出，直接对应 `Create` / `Modify` 的入参。
+ *
+ * - [clearDeadline] 为 true 时服务端通过 `flag_clear_deadline` 把截止时间置空；
+ * - [progress] 仅在编辑已有事项时传值，创建接口会忽略 `percent_completion`。
+ */
+data class TodoEditResult(
+    val title: String,
+    val content: String,
+    val deadline: Date?,
+    val clearDeadline: Boolean,
+    val importance: Int,
+    val urgency: Int,
+    val minuteEstimate: Int?,
+    val progress: Int?,
+)
+
+/**
  * 待办编辑对话框。
  *
  * - 右下角「完成」保存并退出；
  * - 「取消」或点击对话框外部区域即放弃编辑；
- * - 提醒时间同时写入服务端截止时间（gmt_deadline）并注册本地闹钟。
+ * - 完成截止时间同时写入服务端 `gmt_deadline` 并注册本地提醒。
  */
 @Composable
 fun TodoEditDialog(
     initial: TodoItem?,
     saving: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: (
-        title: String,
-        content: String,
-        deadline: Date?,
-        importance: Int?,
-        urgency: Int?,
-    ) -> Unit,
+    onConfirm: (TodoEditResult) -> Unit,
 ) {
     val context = LocalContext.current
+    val editing = initial != null
     var title by rememberSaveable { mutableStateOf(initial?.title.orEmpty()) }
     var content by rememberSaveable { mutableStateOf(initial?.content.orEmpty()) }
     var deadlineMillis by rememberSaveable {
         mutableStateOf(TodoTime.parseUtc(initial?.gmtDeadline)?.time)
     }
-    var importance by rememberSaveable { mutableStateOf(initial?.levelImportance ?: 50) }
-    var urgency by rememberSaveable { mutableStateOf(initial?.levelUrgency ?: 50) }
+    var importance by rememberSaveable {
+        mutableStateOf(initial?.levelImportance ?: DEFAULT_LEVEL)
+    }
+    var urgency by rememberSaveable {
+        mutableStateOf(initial?.levelUrgency ?: DEFAULT_LEVEL)
+    }
+    var minuteEstimate by rememberSaveable {
+        mutableStateOf(initial?.minuteEstimate?.toString().orEmpty())
+    }
+    var progress by rememberSaveable {
+        mutableStateOf(initial?.percentCompletion ?: 0)
+    }
+    // 初始是否已有截止时间：用于判断「清空」是否真的需要通知服务端
+    val hadDeadline = remember(initial?.taskNo) { initial?.gmtDeadline != null }
 
     AlertDialog(
         onDismissRequest = { if (!saving) onDismiss() },
         title = {
-            Text(text = if (initial == null) "新建待办" else "编辑待办")
+            Text(text = if (editing) "编辑待办" else "新建待办")
         },
         text = {
             Column(
@@ -106,11 +132,35 @@ fun TodoEditDialog(
                     value = urgency,
                     onValueChange = { urgency = it },
                 )
-                if (initial != null) {
+                OutlinedTextField(
+                    value = minuteEstimate,
+                    onValueChange = { value ->
+                        minuteEstimate = value.filter { it.isDigit() }.take(MAX_MINUTE_DIGITS)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(text = "预计耗时（分钟）") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    supportingText = {
+                        Text(
+                            text = if (editing) {
+                                "留空表示不修改"
+                            } else {
+                                "留空时由服务端按缺省值 $DEFAULT_MINUTE_ESTIMATE 分钟填充"
+                            },
+                        )
+                    },
+                )
+                if (editing) {
+                    LevelStepper(
+                        label = "完成进度",
+                        value = progress,
+                        onValueChange = { progress = it },
+                    )
                     Text(
-                        text = "服务端 Modify 暂不支持修改重要性与紧急程度，已有事项的改动不会生效。",
+                        text = "进度改为 100% 会自动标记为已完成，改回 0% 则回到待开始并清空完成时间。",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
@@ -121,7 +171,7 @@ fun TodoEditDialog(
                 ) {
                     Column {
                         Text(
-                            text = "提醒时间",
+                            text = "完成截止时间",
                             style = MaterialTheme.typography.bodyLarge,
                         )
                         Text(
@@ -133,7 +183,7 @@ fun TodoEditDialog(
                     Row {
                         if (deadlineMillis != null) {
                             TextButton(onClick = { deadlineMillis = null }) {
-                                Text(text = "清除")
+                                Text(text = "清空")
                             }
                         }
                         TextButton(
@@ -147,24 +197,28 @@ fun TodoEditDialog(
                         }
                     }
                 }
-                if (initial != null && deadlineMillis == null && initial.gmtDeadline != null) {
-                    Text(
-                        text = "服务端不支持清空截止时间，清除后仅本机立即取消提醒，服务端仍保留原时间。",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                Text(
+                    text = "截止时间同时用于本机提醒；清空会同步通知服务端置空该字段。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
                     onConfirm(
-                        title.trim(),
-                        content.trim(),
-                        deadlineMillis?.let { Date(it) },
-                        importance,
-                        urgency,
+                        TodoEditResult(
+                            title = title.trim(),
+                            content = content.trim(),
+                            deadline = deadlineMillis?.let { Date(it) },
+                            // 原本有截止时间、这次被清空时，才需要显式通知服务端
+                            clearDeadline = editing && hadDeadline && deadlineMillis == null,
+                            importance = importance,
+                            urgency = urgency,
+                            minuteEstimate = minuteEstimate.toIntOrNull()?.coerceAtLeast(0),
+                            progress = if (editing) progress else null,
+                        ),
                     )
                 },
                 enabled = !saving && title.isNotBlank(),
@@ -283,3 +337,8 @@ private fun StepButton(
 
 private const val LEVEL_MIN = 0
 private const val LEVEL_MAX = 100
+
+/** 服务端未指定时的缺省指标值，与 Create 的缺省保持一致。 */
+private const val DEFAULT_LEVEL = 50
+private const val DEFAULT_MINUTE_ESTIMATE = 10
+private const val MAX_MINUTE_DIGITS = 5

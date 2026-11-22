@@ -85,7 +85,6 @@ import io.github.acnxo.amc.data.todo.TodoTime
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.Date
 import kotlin.math.roundToInt
 
 /**
@@ -94,8 +93,9 @@ import kotlin.math.roundToInt
  * - 数据来自「内容服务节点」配置的 BASE_URL 下的 CMS ToDo OpenAPI；
  * - 左侧勾选框切换完成状态；
  * - 点击标题展开/折叠详细描述（手风琴，同一时刻只展开一条）；
- * - 长按标题弹出编辑对话框，可改标题、内容与提醒时间；
- * - 左滑露出红色删除按钮（服务端暂无删除接口，点击会提示）。
+ * - 长按标题弹出编辑对话框，可改标题、内容、重要性、紧急程度、预计耗时、
+ *   完成进度与完成截止时间；
+ * - 左滑露出红色删除按钮，点击调用 `Modify` 写 `flag_delete=1` 做逻辑删除。
  */
 @Composable
 fun TodoScreen(
@@ -144,33 +144,35 @@ fun TodoScreen(
         loading = false
     }
 
-    fun save(
-        title: String,
-        content: String,
-        deadline: Date?,
-        importance: Int?,
-        urgency: Int?,
-    ) {
+    fun save(result: TodoEditResult) {
         val client = api ?: return
         val current = editing
+        // 提到 lambda 外部，避免多次可空智能转换
+        val deadline = result.deadline
         scope.launch {
             saving = true
             error = null
             runCatching {
                 val saved = if (current == null) {
                     client.create(
-                        title = title,
-                        content = content,
+                        title = result.title,
+                        content = result.content,
                         deadline = deadline,
-                        levelImportance = importance,
-                        levelUrgency = urgency,
+                        minuteEstimate = result.minuteEstimate,
+                        levelImportance = result.importance,
+                        levelUrgency = result.urgency,
                     )
                 } else {
                     client.modify(
                         taskNo = current.taskNo,
-                        title = title,
-                        content = content,
+                        title = result.title,
+                        content = result.content,
                         deadline = deadline,
+                        clearDeadline = result.clearDeadline,
+                        minuteEstimate = result.minuteEstimate,
+                        levelImportance = result.importance,
+                        levelUrgency = result.urgency,
+                        percentCompletion = result.progress,
                     )
                 }
                 if (deadline != null) {
@@ -245,14 +247,18 @@ fun TodoScreen(
         }
     }
 
+    /** 左滑删除：调用 `Modify` 写 `flag_delete=1` 做逻辑删除，成功后从列表移除。 */
     fun delete(item: TodoItem) {
-        // TODO(#17): 服务端尚未提供软删除端点，Modify 也不接受 flag_delete。
-        // 接口就绪后改为调用 TodoApi.softDelete(item.taskNo) 并刷新列表。
-        Toast.makeText(
-            context,
-            "后端尚未支持软删除，删除功能待服务端提供接口（issue #17）",
-            Toast.LENGTH_LONG,
-        ).show()
+        val client = api ?: return
+        scope.launch {
+            runCatching { client.softDelete(item.taskNo) }
+                .onSuccess {
+                    todoItems = todoItems.filterNot { it.taskNo == item.taskNo }
+                    if (expandedId == item.taskNo) expandedId = null
+                    Toast.makeText(context, "已删除：${item.title}", Toast.LENGTH_SHORT).show()
+                }
+                .onFailure { error = it.message ?: "删除失败" }
+        }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -409,11 +415,11 @@ fun TodoScreen(
             initial = editing,
             saving = saving,
             onDismiss = { editorVisible = false },
-            onConfirm = { title, content, deadline, importance, urgency ->
-                if (title.isBlank()) {
+            onConfirm = { result ->
+                if (result.title.isBlank()) {
                     Toast.makeText(context, "标题不能为空", Toast.LENGTH_SHORT).show()
                 } else {
-                    save(title, content, deadline, importance, urgency)
+                    save(result)
                 }
             },
         )
@@ -574,7 +580,7 @@ private fun TodoRow(
                             )
                             item.gmtDeadline?.let { deadline ->
                                 Text(
-                                    text = "提醒：${TodoTime.formatLocal(deadline)}",
+                                    text = "截止：${TodoTime.formatLocal(deadline)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                 )
