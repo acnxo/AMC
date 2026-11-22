@@ -21,21 +21,25 @@ enum class TodoStatus(val code: Int, val label: String) {
 }
 
 /**
- * 内容类型，取值对齐服务端 `content_type`（见 ToDo OpenAPI README 的枚举表）。
+ * 内容类型，取值对齐服务端 `content_type`。
+ *
+ * 注：`base64` 在 OpenAPI 文档里是 `6`，字典表里另写作 `5`，两种取值都映射为 BASE64。
  */
 enum class TodoContentType(val code: String, val label: String) {
-    TXT("1", "txt"),
-    HTML("2", "html"),
-    MARKDOWN("3", "markdown"),
-    IMAGE("4", "img"),
-    BASE64("6", "base64"),
+    TXT("1", "TXT"),
+    HTML("2", "HTML"),
+    MARKDOWN("3", "MarkDown"),
+    IMAGE("4", "图片"),
+    BASE64("6", "BASE64"),
     ENCRYPTED("7", "加密"),
     ;
 
     companion object {
         /** 未知取值直接回显原值，避免丢信息。 */
-        fun labelOf(code: String?): String =
-            entries.firstOrNull { it.code == code }?.label ?: (code ?: "未知")
+        fun labelOf(code: String?): String = when (code) {
+            "5", "6" -> "BASE64"
+            else -> entries.firstOrNull { it.code == code }?.label ?: (code ?: "未知")
+        }
     }
 }
 
